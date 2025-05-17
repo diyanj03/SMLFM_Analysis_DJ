@@ -110,7 +110,7 @@ Install the following software. Tested versions are indicated in parentheses.
 ---
 ### 1.4. Install Python Dependencies
 
-With the sctive virtual environment inside the project directory, run the following:
+With the active virtual environment inside the project directory, run the following:
 ```
 pip install -r requirements.txt
 ```
