@@ -1,7 +1,7 @@
 {
   "saveRawImage": false,
   "my_dims": ["t", "row", "col"],
-  "ram": "20",
+  "ram": "8",
 
   "peak_fit_params": {
     "calibration": "266",
