@@ -15,7 +15,7 @@
         0.0
     ],
     "_mla_rotation_doc": "A rotation of the MLA to match the orientation of the data (in degrees)",
-    "mla_rotation": 30.8,
+    "mla_rotation": 30.7,
     "_mla_offset_doc": "An X,Y offset of the MLA to match the orientation of the data (in microns).",
     "mla_offset": [
         0.0,
