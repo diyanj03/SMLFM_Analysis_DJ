@@ -132,7 +132,7 @@ This installs all python packages required for the analysis pipeline.
 <br><br>
 
 ### 2.2. 2D Fitting using ImageJ's PeakFit (Cell 2)
-- **Purpose:** To obtain 2D localisations (XY coordinates) per frame from raw .tif timestacks.
+- **Purpose:** To obtain 2D localisations (XY coordinates) across all frames from raw .tif timestacks.
 
 - **Inputs:**  
     - **`source_path`**: can be set to either of the following:
@@ -150,7 +150,7 @@ This installs all python packages required for the analysis pipeline.
 
 - **Configuration for 2D Fitting:**
     - Adjust 2D fitting settings by opening and modifying the `fitting2D_config.json` file under the `configs` folder.
-    - Key settings include: 
+    - Key settings: 
         - `ram` - memory allocated to Fiji. (ensure this is less than the memory capacity of your device, set as "6" if unsure).
         - `saveRawImage` - to save raw timestack in workspace - boolean.
         - `my_dims` - change if dimensions of your image are not [time, row, column].
@@ -164,7 +164,7 @@ This installs all python packages required for the analysis pipeline.
 <br>
 
 ### 2.3. 3D Fitting using PySMLFM (Cell 3)
-- **Purpose:** To obtain 3D localisations (XYZ coordinates) per frame from 2D localisation csv files. Uses the PySMLFM package from https://github.com/Photometrics/PySMLFM.
+- **Purpose:** To obtain 3D localisations (XYZ coordinates) across all frames from 2D localisation csv files. Uses the PySMLFM package from https://github.com/Photometrics/PySMLFM.
 
 - **Inputs:** 
     - **`runLoop`**
