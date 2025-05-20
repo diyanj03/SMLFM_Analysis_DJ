@@ -9,9 +9,9 @@ This pipeline quantifies the biophysical parameters of a nuclear transcription f
 
 2.  **Running the Analysis (using Jupyter Notebook)**: Running the pipeline step-by-step, inputs to provide, and handling configurations.
 
-*Note: This guide assumes Windows OS for environment setup. For a Unix-like system (macOS/Linux/WSL), you can set up the environment in an analgous way to the instructions that will follow.* <br>
+*Note: This guide assumes Windows OS for environment setup. For a Unix-like system (macOS/Linux/WSL), you can set up the environment in an analagous way to the instructions that will follow.* <br>
 
-***Recommended**: use a code editor like [VSCode](https://code.visualstudio.com/download) with Python and Jupyter extensions installed to run the analysis using the Jupyter Notebook.*
+***Recommended**: use an interface like [VSCode](https://code.visualstudio.com/download) with Python and Jupyter extensions installed to run the analysis using the Jupyter Notebook. Alternatively, Jupyter Notebook or JupyterLab can be used too.*
 
 
 ## 1. Python Environment Setup
@@ -117,11 +117,23 @@ pip install -r requirements.txt
 This installs all python packages required for the analysis pipeline.
 <br><br>
 
----
+### 1.5. Connecting .venv to the Jupyter Notebook
+Once your python virtual environment is set up, the `main.ipynb` notebook located in the `src` folder will be used for analysis. Ensure that you select the .venv kernel when using main.ipynb in order to use the python installation from your virtual environment. 
+
+The exact steps can vary slightly depending on how you are running Jupyter (e.g., via a terminal command, VS Code, or another IDE):
+
+1. If using Jupyter interface, the notebook should be launched within the venv activated terminal. Often, Jupyter will automatically use your active `.venv`. If not, or if you need to switch, look for a **"Kernel"** menu in the notebook's menu bar, choose **"Change kernel,"** and select the one associated with your `.venv`.
+
+2. If using an IDE (VScode, PyCharm), first open `main.ipynb`, you need to point the IDE to use the Python interpreter file located inside your virtual environment. The path to this file is:
+      * **Windows:** `your\path\to\SMLFM_Analysis_DJ-main\.venv\Scripts\python.exe`
+      * **macOS/Linux:** `your/path/to/SMLFM_Analysis_DJ-main/.venv/bin/python`
+
+   e. Your IDE might list this interpreter automatically if it detects the `.venv` folder. If not, look for an option to "Enter interpreter path," "Add Interpreter," or use a "browse" button to manually select the `python.exe` (Windows) or `python` (macOS/Linux) file from the exact path above.
+
+<br><br>
 ## 2. Implementing the Analysis Pipeline (in main.ipynb)
 
-### Open `main.ipynb` Jupyter Notebook from the `src` folder and select the `.venv` kernel.
-
+Once all software has been installed, and the kernel in main.ipynb has been selected as your virtual environment (.venv) (Section 1), you can now begin running the analysis on `main.ipynb`.
 
 
 ### 2.1. Defining root directory and importing packages (cell 1)
