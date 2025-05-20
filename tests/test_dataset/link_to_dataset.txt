@@ -1,4 +1,4 @@
-Link to the raw SMLFM test dataset of a NANOG mutant protein in mESCs.
+Link to the raw SMLFM test dataset of a NANOG mutant protein in mESCs:
 
 There are five separate tif files of the same fov. so the source_path is cell 2 should be set as the absolute path to the folder that contains these 5 tif files (option 2).
 
