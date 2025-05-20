@@ -1,0 +1,31 @@
+# Ignore everything by default
+*
+
+# Allow root-level files
+!README.md
+!requirements.txt
+
+# Allow specific files in src/
+!src/
+src/*
+!src/main.ipynb
+!src/AnalyzeTrackingData_withDirection_master.m
+
+# Allow everything under src/my_package/
+!src/my_package/
+!src/my_package/**
+
+# Allow specific files in configs/
+!configs/
+configs/*
+!configs/default_configs/
+!configs/default_configs/**
+!configs/fitting2D_config.json
+!configs/fitting3D_config.json
+
+# Allow everything under tests/
+!tests/
+!tests/**
+
+# Allow gitignore
+!.gitignore
