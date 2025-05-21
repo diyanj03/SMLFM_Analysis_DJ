@@ -16,6 +16,7 @@ src/*
 !src/my_package/**
 # Ignore Python cache
 src/my_package/__pycache__/
+src/my_package/__pycache__/**
 
 # Allow specific files in configs/
 !configs/
