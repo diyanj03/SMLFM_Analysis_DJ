@@ -13,6 +13,7 @@ This pipeline quantifies the biophysical parameters of a nuclear transcription f
 
 ***Recommended**: use an interface like [VSCode](https://code.visualstudio.com/download) with Python and Jupyter extensions installed to run the analysis using the Jupyter Notebook. Alternatively, Jupyter Notebook or JupyterLab can be used too.*
 
+<br>
 
 ## 1. Python Environment Setup
 
@@ -84,6 +85,10 @@ Install the following software. Tested versions are indicated in parentheses.
 - Download from [MathWorks](https://www.mathworks.com/downloads/).
 - Add MATLAB's `bin` directory (e.g.: `C:\Program Files\MATLAB\R2024b\bin`) to your system `Path`.
 - Verify installation on terminal: `matlab -batch "disp(['MATLAB version: ' version]); exit"`.
+- Open the application and install the following add-ons:
+    -  Curve Fitting Toolbox
+    -  Image Processing Toolbox
+    -  Statistics and Machine Learning Toolbox
 
 ---
 
@@ -115,22 +120,24 @@ With the active virtual environment inside the project directory, run the follow
 pip install -r requirements.txt
 ```
 This installs all python packages required for the analysis pipeline.
-<br><br>
 
+---
 ### 1.5. Connecting .venv to the Jupyter Notebook
-Once your python virtual environment is set up, the `main.ipynb` notebook located in the `src` folder will be used for analysis. Ensure that you select the .venv kernel when using main.ipynb in order to use the python installation from your virtual environment. 
 
-The exact steps can vary slightly depending on how you are running Jupyter (e.g., via a terminal command, VS Code, or another IDE):
+The `main.ipynb` notebook in the `src` folder will be used for analysis. Ensure the `.venv` kernel is selected so the notebook uses the virtual environment's Python interpreter.
 
-1. If using Jupyter interface, the notebook should be launched within the venv activated terminal. Often, Jupyter will automatically use your active `.venv`. If not, or if you need to switch, look for a **"Kernel"** menu in the notebook's menu bar, choose **"Change kernel,"** and select the one associated with your `.venv`.
+- **In any IDE or environment (JupyterLab, VS Code, PyCharm, etc.):**  
+  Open `main.ipynb`. If the kernel/interpreter isn't auto-detected:
+  - Go to the kernel or interpreter selection menu.
+  - Manually select the Python interpreter from your virtual environment:
+    - **Windows:**  
+      `your\path\to\SMLFM_Analysis_DJ-main\.venv\Scripts\python.exe`
+    - **macOS/Linux:**  
+      `your/path/to/SMLFM_Analysis_DJ-main/.venv/bin/python`
+  - Use options like **"Change Kernel"**, **"Add Interpreter"**, or **"Enter interpreter path"** as needed.
 
-2. If using an IDE (VScode, PyCharm), first open `main.ipynb`, you need to point the IDE to use the Python interpreter file located inside your virtual environment. The path to this file is:
-      * **Windows:** `your\path\to\SMLFM_Analysis_DJ-main\.venv\Scripts\python.exe`
-      * **macOS/Linux:** `your/path/to/SMLFM_Analysis_DJ-main/.venv/bin/python`
+<br>
 
-   e. Your IDE might list this interpreter automatically if it detects the `.venv` folder. If not, look for an option to "Enter interpreter path," "Add Interpreter," or use a "browse" button to manually select the `python.exe` (Windows) or `python` (macOS/Linux) file from the exact path above.
-
-<br><br>
 ## 2. Implementing the Analysis Pipeline (in main.ipynb)
 
 Once all software has been installed, and the kernel in main.ipynb has been selected as your virtual environment (.venv) (Section 1), you can now begin running the analysis on `main.ipynb`.
@@ -141,7 +148,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 - **Inputs**:
     - **`root_dir`**: absolute path of your SMLFM_Analysis_DJ-main folder as noted in step 1.1. 
 - Run this cell evertyime you restart the kernel.
-<br><br>
+---
 
 ### 2.2. 2D Fitting using ImageJ's PeakFit (Cell 2)
 - **Purpose:** To obtain 2D localisations (XY coordinates) across all frames from raw .tif timestacks.
@@ -173,7 +180,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** 2D localisation csv file for each dataset will be saved in the `data` folder, specifically within `data/2D_locs_csv/`
 
-<br>
+---
 
 ### 2.3. 3D Fitting using PySMLFM (Cell 3)
 - **Purpose:** To obtain 3D localisations (XYZ coordinates) across all frames from 2D localisation csv files. Uses the PySMLFM package from https://github.com/Photometrics/PySMLFM.
@@ -201,7 +208,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
     - Figures (alignment plot, 3D scatter plot) + config file + localisation csv saved to the 'data/3D_fitting_results/' folder. 
     - Formatted version of the 3D localisations csv file saved to the 'data/formatted_3Dlocs/' folder.
 
-<br>
+---
 
 ## 2.4. Optimising MLA alignment for 3D Fitting (Cell 4)
 - **NOTE:** If 3D fitting worked well with a good MLA alignment (obtaining expected number of 3D localisations),  then skip this step and move on to section 2.5 (cell 5).
@@ -220,7 +227,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** Text file of top combinations of `mla_rotation` and `mla_offset` saved in 'data/3D_fitting_alignmentOpt/'. Apply these optimal alignment parameters in the 3D fitting config file and re-run 3D fitting on cell 3. 
     
-<br>
+---
 
 ## 2.5. Plotting 3D Localisations (Cell 5)
 - **Purpose:** To produce and display scatter plots of 3D localisations across all frames for qualitative assessment of a dataset.
@@ -234,7 +241,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** 2D and 3D scatter plots of all 3D localisations fitted across all frames for the given dataset. Must run next cell after this plot.
 
-<br>
+---
 
 ## 2.6. Cropping 3D Localisations (Cell 6)
 - **Purpose:**  To crop out 3D localisations that make up the coverslip and artefacts.
@@ -251,7 +258,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
     - A cropped 3D localisation csv file saved in the **'data/cropped_3Dlocs/**' folder.
     - Displays and saves scatter plots of the cropped data. 
 
-<br>
+---
 
 ## 2.7. Single molecule tracking (Cell 7):
 - **Purpose:** Obtaining single molecule trajectories from cropped 3D localisation data. Uses code from https://github.com/wb104/trajectory-analysis.
@@ -260,7 +267,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:**  csv files of single particle trajectories for each dataset saved in the **'data/tracks/'** folder.
 
-<br>
+---
 
 ## 2.8. Analysing and classifying trajectories (Cell 8) :
 - **Purpose:** To compute biophysical parameters of each single particle trajectory, classify each trajectory into DNA-bound or freely diffusing, and output global parameters of the TF such as diffusion constant, association and dissociate rates. Further information about this analysis can be found from the [supplement methods of Basu et al., 2023](https://static-content.springer.com/esm/art%3A10.1038%2Fs41594-023-01095-4/MediaObjects/41594_2023_1095_MOESM1_ESM.pdf).
@@ -273,7 +280,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** An output folder named by the data & time of analysis saved to the **'results**` folder. Can rename the output folder to the sample type. Output folder contains loads of results.
 
-<br>
+---
 
 ## 2.9. Plotting results for a sample (Cells 9)
 - **Purpose:** To produce jitter plots showing per FOV distribution of specific TF properties (% bound to DNA, diffusion constant when DNA-bound, diffusion constant when unbound) of a given sample.  
@@ -285,6 +292,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** Saves .png plots to the provided destination directory. 
 
+---
 
 ## 2.10. Plotting results comparing samples (Cell 10)
 - **Purpose:** Similar to Cell 9 but plots distributions of different samples in the same plot and performs statistical analysis to test for significance.
@@ -296,7 +304,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 - **Output:** Saves .pdf plots to the provided destination directory. Also saves .txt files containing output of statistics (mean, std_dev, etc) and significance test results (type of test, p_value). 
 
-<br>
+---
 
 ## 2.11. Saving data and results (Cell 11)
 - **Purpose:** To copy the whole `data/` and `results/` directories to a destination folder.
@@ -304,11 +312,11 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 - **Inputs:** 
     - **`destination_dir`**: absolute path to the destination folder to save the data from the **'data/'** and **'results/'** folders.
 
-- Can now empty the workspace in SMLFM_Analysis_DJ for another round of analysis with another sample type or condition.
+- The workspace in SMLFM_Analysis_DJ-main can now be emptied for another round of analysis with another sample type or condition.
 
 ---
  
-### *The pipeline has been tested using a sample SOX2_mESC SMLFM dataset from the 'tests' folder.*   
+### *The pipeline has been tested using a 20ms SMLFM dataset of a HaloTag-tagged NANOG mutant in live mESCs. Raw data and results for this can be found in the 'tests' folder.*   
 
 
 
