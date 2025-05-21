@@ -11,7 +11,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from . import smlfm
-import smlfm.graphs
+from .smlfm import graphs
 
 
 def load_config(root_dir, config_name = None):
@@ -71,7 +71,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
           f' {np.unique(csv.data[:, 0]).shape[0]} unique frames')
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_locs_csv(plt.figure(), csv.data[:, 1:3])
+        fig = graphs.draw_locs_csv(plt.figure(), csv.data[:, 1:3])
         fig.canvas.manager.set_window_title('Raw localisations')
 
     csv.scale_peakfit_data(lfm.pixel_size_sample)
@@ -89,14 +89,14 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
         cfg.mla_optic_size, np.array(cfg.mla_centre))
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
+        fig = graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
         fig.canvas.manager.set_window_title('Micro-lens array centres')
 
     mla.rotate_lattice(np.deg2rad(cfg.mla_rotation))
     mla.offset_lattice(np.array(cfg.mla_offset) / lfm.mla_to_xy_scale)
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
+        fig = graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
         fig.canvas.manager.set_window_title('Micro-lens array centres rotated')
 
     # Map localisations to lenses
@@ -109,7 +109,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
         print(f'Mapping points to lenses took {1e3 * (time.time() - tic):.3f} ms')
 
     if cfg.show_graphs and cfg.show_mla_alignment_graph:
-        fig = smlfm.graphs.draw_locs(
+        fig = graphs.draw_locs(
             plt.figure(),
             xy=lfl.locs_2d[:, 3:5],
             lens_idx=lfl.locs_2d[:, 12],
@@ -178,7 +178,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     lfl.correct_xy(correction)
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_locs(
+        fig = graphs.draw_locs(
             plt.figure(),
             xy=lfl.corrected_locs_2d[:, 3:5],
             lens_idx=lfl.corrected_locs_2d[:, 12],
@@ -255,7 +255,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     # 9. Plotting results
 
     if cfg.show_graphs and cfg.show_result_graphs:
-        fig1, fig2, fig3 = smlfm.graphs.reconstruct_results(
+        fig1, fig2, fig3 = graphs.reconstruct_results(
             plt.figure(), plt.figure(), plt.figure(),
             locs_3d, cfg.show_max_lateral_err, cfg.show_min_view_count)
         fig1.canvas.manager.set_window_title('Occurrences')
@@ -392,7 +392,7 @@ def fittingAxialLocs_opt(csv_file_path, root_dir, config_name=None, cfg=None):
     #       f' {np.unique(csv.data[:, 0]).shape[0]} unique frames')
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_locs_csv(plt.figure(), csv.data[:, 1:3])
+        fig = graphs.draw_locs_csv(plt.figure(), csv.data[:, 1:3])
         fig.canvas.manager.set_window_title('Raw localisations')
 
     csv.scale_peakfit_data(lfm.pixel_size_sample)
@@ -411,14 +411,14 @@ def fittingAxialLocs_opt(csv_file_path, root_dir, config_name=None, cfg=None):
         cfg.mla_optic_size, np.array(cfg.mla_centre))
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
+        fig = graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
         fig.canvas.manager.set_window_title('Micro-lens array centres')
 
     mla.rotate_lattice(np.deg2rad(cfg.mla_rotation))
     mla.offset_lattice(np.array(cfg.mla_offset) / lfm.mla_to_xy_scale)
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
+        fig = graphs.draw_mla(plt.figure(), mla.lens_centres, mla.centre)
         fig.canvas.manager.set_window_title('Micro-lens array centres rotated')
 
     # 4. Map localisations to lenses
@@ -432,7 +432,7 @@ def fittingAxialLocs_opt(csv_file_path, root_dir, config_name=None, cfg=None):
     #     print(f'Mapping points to lenses took {1e3 * (time.time() - tic):.3f} ms')
 
     if cfg.show_graphs and cfg.show_mla_alignment_graph:
-        fig = smlfm.graphs.draw_locs(
+        fig = graphs.draw_locs(
             plt.figure(),
             xy=lfl.locs_2d[:, 3:5],
             lens_idx=lfl.locs_2d[:, 12],
@@ -504,7 +504,7 @@ def fittingAxialLocs_opt(csv_file_path, root_dir, config_name=None, cfg=None):
     lfl.correct_xy(correction)
 
     if cfg.show_graphs and cfg.show_all_debug_graphs:
-        fig = smlfm.graphs.draw_locs(
+        fig = graphs.draw_locs(
             plt.figure(),
             xy=lfl.corrected_locs_2d[:, 3:5],
             lens_idx=lfl.corrected_locs_2d[:, 12],
