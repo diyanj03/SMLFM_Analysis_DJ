@@ -37,7 +37,7 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             'numberOfClasses',2,...        % number of classes (confined/unconfined/others..)
             'exportResults', true,...      % export results  [true/false]
             'exportFigures',true,...       % export fig files
-            'exportCI', false, ...         % export confidence interval
+            'exportCI', true, ...         % export confidence interval
             'resultFolder',fullfile(pwd,'..','Results'),... % result folder (default=code folder/../)
             'exportPDBtrajectories', true,... % export trajectories as pdb file
             'allowFrameSkipping', true,... % exclude trajectories with frame skipping
