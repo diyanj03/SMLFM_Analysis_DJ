@@ -14,9 +14,12 @@ src/*
 # Allow everything under src/my_package/
 !src/my_package/
 !src/my_package/**
-# Ignore Python cache
-src/my_package/__pycache__/
-src/my_package/__pycache__/**
+
+# Ignore Python cache and compiled files within src/my_package/ and its subdirectories (like smlfm)
+src/my_package/**/__pycache__/
+src/my_package/**/*.pyc
+src/my_package/**/*.pyo
+src/my_package/**/*.pyd
 
 # Allow specific files in configs/
 !configs/
