@@ -109,6 +109,8 @@ Install the following software. Tested versions are indicated in parentheses.
 3. Activate venv by running the following command: 
     * CMD: `.venv\Scripts\activate`
     * PowerShell: `.venv\Scripts\Activate.ps1`
+    * Bash: `source .venv/bin/activate`
+
     
     (Once active, your command prompt will then be prefixed with `(.venv)`)
 
