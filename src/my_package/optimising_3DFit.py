@@ -50,6 +50,7 @@ def optimise_MLA_alignment(root_dir, search_space, locs2D_path, base_configName,
         cfg_name = new_name
         numlocs3D = fitting_3D.fittingAxialLocs_opt(locs2D_path, root_dir, cfg_name)[1]
 
+        os.remove(new_filepath)
         return numlocs3D
 
     # Wrapper for skopt
@@ -67,7 +68,7 @@ def optimise_MLA_alignment(root_dir, search_space, locs2D_path, base_configName,
 
 
 
-    # Deleting the config files generated
+    # deleting the config files generated
     config_dir = os.path.join(root_dir, 'configs')
     base_name = os.path.splitext(os.path.split(base_configPath)[1])[0]
     for fname in os.listdir(config_dir):
