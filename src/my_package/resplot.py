@@ -81,11 +81,11 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
         plt.xticks(rotation=45)
         plt.ylabel('Association Time (s)')
         plt.xlabel('')
-        plt.legend(title='Tau Values')
-        destination_path = os.path.join(destination_dir, '_'.join(sample_names) + '_associationValues.png')
+        plt.legend()
+        destination_path = os.path.join(destination_dir, '_'.join(sample_names) + '_associationValues.pdf')
         plt.margins(x=0.3)
         plt.tight_layout()
-        plt.savefig(destination_path, dpi=400)
+        plt.savefig(destination_path)
         plt.show()
 
     # Generate the plot
