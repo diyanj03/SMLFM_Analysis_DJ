@@ -93,7 +93,7 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
 
 
 
-# Percentage of Trajectories confined per FOV
+# Extracting percentage confined per FOV from results directory
 
 def extracting_confPerc_values(results_directory):
     """
@@ -112,109 +112,255 @@ def extracting_confPerc_values(results_directory):
 
     return confPerc_list
 
-def distribution_confPerc_allFOV(results_dir, molecule_name, destination_dir):
-    """
-    Args:
-    root directory
-    user input: name of molecule (string)
-    """
 
+# Extracting mean biophysical parameters per FOV from results directory 
+# params = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
+# conf_or_unconf_or_all = ['Confined', 'Unconfined', 'AllTrajectories']
+
+def extract_biophysical_param(results_dir, param, conf_or_unconf_or_all):
+    csv_path = os.path.join(results_dir, conf_or_unconf_or_all, f'{param}.csv')
+    df = pd.read_csv(csv_path)
+    
+    np_avg_diffusionConst_list = [] 
+
+    for x in (df['datasetIdx']).unique():
+        df_perfov = df[df['datasetIdx'] == x]
+        np_avg_diffusionConst_list.append(np.mean(df_perfov[param]))
+    
+    avg_param_distribution = [float(x) for x in np_avg_diffusionConst_list]
+
+    return avg_param_distribution 
+
+
+
+
+
+# Jitter plots for per FOV biophysical parameters and confPerc values. multiple samples or single sample.
+
+def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, segmentation_state=None):
     plt.figure(figsize=(8, 3))
-    sns.boxplot(x=extracting_confPerc_values(results_dir), width=0.5, color="lightblue", orient='h')
-    sns.stripplot(x=extracting_confPerc_values(results_dir), jitter=True, color='black', alpha=0.5, size=5, orient='h')
-    plt.title(molecule_name)
-    plt.xlabel('Percentage of Confined Trajectories (%)')
+    
+    param_list = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
+    segmentation_state_list = ['Confined', 'Unconfined', 'AllTrajectories']
+
+    if parameter == 'confPerc':
+        distribution_list = extracting_confPerc_values(results_dir) 
+        y_var = 'Percentage of Trajectories Confined per FOV (%)' 
+        unit = '%'
+        segmentation_state = ''
+        new_label = ''
+
+    elif parameter in param_list:
+        if segmentation_state in segmentation_state_list:
+            distribution_list = extract_biophysical_param(results_dir, parameter, segmentation_state)
+            if segmentation_state == 'Confined':
+                new_label = 'Chromatin-Bound'
+            elif segmentation_state == 'Unconfined':
+                new_label = 'Freely-Diffusing'
+            elif segmentation_state == 'AllTrajectories':
+                new_label = 'All'
+        else: 
+            print('Classification state not specified, defaulting to AllTrajectories')
+            segmentation_state = 'AllTrajectories'
+            new_label = 'All'
+            distribution_list = extract_biophysical_param(results_dir, parameter, segmentation_state)
+
+
+        if parameter == 'alpha':
+            y_var = f'Mean {parameter} per FOV - {new_label} Trajectories'
+            unit = ''
+        elif parameter == 'diffusionConst':
+            y_var = f'Mean {parameter} per FOV (μm$^2$/s) - {new_label} Trajectories'
+            unit = 'μm²/s'
+        elif parameter == 'driftMagnitude':
+            y_var = f'Mean {parameter} per FOV (μm/s) - {new_label} Trajectories'
+            unit = 'μm/s'
+        elif parameter == 'Lc':
+            y_var = f'Mean {parameter} per FOV (μm) - {new_label} Trajectories'
+            unit = 'μm'
+        else:
+            raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list}.")
+
+    else:
+        raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list} or 'confPerc'.")
+    
+    number_of_fovs = len(distribution_list)
+    mean = np.mean(distribution_list)
+    std = np.std(distribution_list)
+    stat, p = shapiro(distribution_list)
+    normality_result = {
+        'statistic': stat,
+        'p_value': p,
+        'normal': p > 0.05
+    }
+    
+    sns.boxplot(x=distribution_list, width=0.5, color="lightblue", orient='h')
+    sns.stripplot(x=distribution_list, jitter=True, color='black', alpha=0.5, size=5, orient='h')
+    plt.title(sample_label)
+    plt.xlabel(y_var)
     plt.tight_layout()
 
-    # destination_dir = os.path.join(results_dir, 'jitter plots')
-    os.makedirs(destination_dir, exist_ok=True)
-    destination_path = os.path.join(destination_dir, molecule_name + '_confPerc_boxplot.png')
-    plt.savefig(destination_path, dpi = 300)
-    plt.show()
+    destination_subdir = os.path.join(destination_dir, sample_label + '_perFOV_results', parameter)
+    os.makedirs(destination_subdir, exist_ok=True)
 
-def jitter_boxplots_confPerc(results_dir_list, labels, destination_dir, rgb_list=None):
-    data_list = []
+    if parameter == 'confPerc':
+        destination_subdir = os.path.join(destination_dir, sample_label + '_perFOV_results', parameter)
+    else:
+        destination_subdir = os.path.join(destination_dir, sample_label + '_perFOV_results', parameter, segmentation_state)
+
+    os.makedirs(destination_subdir, exist_ok=True)
+    destination_path =  os.path.join(destination_subdir, 'jitterPlot.png')
+    
+
+    plt.savefig(destination_path, dpi = 500)
+    plt.show()
+    
+    txt_path = os.path.join(destination_subdir, 'stats.txt')
+    with open(txt_path, 'w', encoding='utf-8') as f:
+        f.write(f"=== {y_var} - Stats Summary ===\n\n")
+
+        f.write(f">> Number of FOVs: {number_of_fovs}\n")
+        f.write(f">> Mean ({unit}): {mean:.3f}\n")
+        f.write(f">> Standard Deviation ({unit}): {std:.3f}\n")
+
+        f.write(">> Normality Test (Shapiro-Wilk):\n")
+
+        normal_str = "Normal" if normality_result['normal'] else "Not normal"
+        f.write(f"statistic = {normality_result['statistic']:.4f}, p = {normality_result['p_value']:.4f} → {normal_str}\n")
+
+
+
+
+
+def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=None, rgb_list=None):
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from collections import defaultdict
+    from scipy.stats import shapiro, ttest_ind, mannwhitneyu
+    from matplotlib import cm
+
     means = {}
     stds = {}
     normality_results = {}
     test_results = {}
 
-    for label, dir in zip(labels, results_dir_list):
-        confPerc_list = extracting_confPerc_values(dir)
-        data_list.append(confPerc_list)
-        means[label] = np.mean(confPerc_list)
-        stds[label] = np.std(confPerc_list)
-        stat, p = shapiro(confPerc_list)
+    param_list = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
+    segmentation_state_list = ['Confined', 'Unconfined', 'AllTrajectories']
+
+    if parameter == 'confPerc':
+        distribution_lists = [extracting_confPerc_values(results_dir) for results_dir in results_dir_list]
+        y_var = 'Percentage of Trajectories Confined per FOV (%)'
+        unit = '%'
+        segmentation_state = ''
+        new_label = ''
+
+    elif parameter in param_list:
+        if segmentation_state in segmentation_state_list:
+            distribution_lists = [extract_biophysical_param(results_dir, parameter, segmentation_state) for results_dir in results_dir_list]
+            if segmentation_state == 'Confined':
+                new_label = 'Chromatin-Bound'
+            elif segmentation_state == 'Unconfined':
+                new_label = 'Freely-Diffusing'
+            elif segmentation_state == 'AllTrajectories':
+                new_label = 'All'
+        else:
+            print('Classification state not specified, defaulting to AllTrajectories')
+            segmentation_state = 'AllTrajectories'
+            new_label = 'All'
+            distribution_lists = [extract_biophysical_param(results_dir, parameter, segmentation_state) for results_dir in results_dir_list]
+
+        if parameter == 'alpha':
+            y_var = f'Mean {parameter} per FOV - {new_label} Trajectories'
+            unit = ''
+        elif parameter == 'diffusionConst':
+            y_var = f'Mean {parameter} per FOV (μm$^2$/s) - {new_label} Trajectories'
+            unit = 'μm²/s'
+        elif parameter == 'driftMagnitude':
+            y_var = f'Mean {parameter} per FOV (μm/s) - {new_label} Trajectories'
+            unit = 'μm/s'
+        elif parameter == 'Lc':
+            y_var = f'Mean {parameter} per FOV (μm) - {new_label} Trajectories'
+            unit = 'μm'
+        else:
+            raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list}.")
+
+    else:
+        raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list} or 'confPerc'.")
+
+    for label, dist_list in zip(sample_labels, distribution_lists):
+        means[label] = np.mean(dist_list)
+        stds[label] = np.std(dist_list)
+        stat, p = shapiro(dist_list)
         normality_results[label] = {
             'statistic': stat,
             'p_value': p,
             'normal': p > 0.05
         }
 
-    xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(data_list)]
-    
-    
-    width_per_dataset = 6.4 / 3 
-    fig_width = width_per_dataset * len(data_list)
+    xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(distribution_lists)]
+
+    width_per_dataset = 6.4 / 3
+    fig_width = width_per_dataset * len(distribution_lists)
     plt.figure(figsize=(fig_width, 4.8))
 
-   
-    if len(data_list) == 2:
+    if len(distribution_lists) == 2:
         plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        widths = 0.28,
-        medianprops=dict(color='black'))
+            distribution_lists,
+            tick_labels=sample_labels,
+            widths=0.28,
+            medianprops=dict(color='black'))
     else:
         plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        medianprops=dict(color='black'))
+            distribution_lists,
+            tick_labels=sample_labels,
+            medianprops=dict(color='black'))
 
-    plt.ylabel('Percentage of Trajectories Confined per FOV (%)')
-
+    plt.ylabel(y_var)
 
     if rgb_list:
-        if len(rgb_list) != len(data_list):
+        if len(rgb_list) != len(distribution_lists):
             print("number of rgb codes provided doesn't match number of datasets to compare")
-        for x, val, rgb in zip(xs, data_list, rgb_list):
+        for x, val, rgb in zip(xs, distribution_lists, rgb_list):
             plt.scatter(x, val, color=rgb, alpha=0.4)
-    
     else:
-        clevels = np.linspace(0., 1., len(data_list))
-        for x, val, clevel in zip(xs, data_list, clevels):
+        clevels = np.linspace(0., 1., len(distribution_lists))
+        for x, val, clevel in zip(xs, distribution_lists, clevels):
             plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
-        
 
     def get_significance_symbol(p_value):
-        if p_value < 0.0001: return "****"
-        elif p_value < 0.001: return "***"
-        elif p_value < 0.01: return "**"
-        elif p_value < 0.05: return "*"
-        else: return "ns"
+        if p_value < 0.0001:
+            return "****"
+        elif p_value < 0.001:
+            return "***"
+        elif p_value < 0.01:
+            return "**"
+        elif p_value < 0.05:
+            return "*"
+        else:
+            return "ns"
 
-    y_stacks = defaultdict(int)
-    
-    max_value = np.max([np.max(data) for data in data_list])
-    base_gap = max_value * 0.03  # for example, 3% of the max value
-    stack_gap = max_value * 0.05
+    max_vals = [np.max(data) for data in distribution_lists]
+    base_gap = max(max_vals) * 0.03
+    stack_gap = max(max_vals) * 0.08
     text_offset = 0.0
 
-    max_annotation_y = 0
+    annotations = []
 
-    for i in range(len(data_list)):
-        for j in range(i + 1, len(data_list)):
-            label_i = labels[i]
-            label_j = labels[j]
+    for i in range(len(distribution_lists)):
+        for j in range(i + 1, len(distribution_lists)):
+            label_i = sample_labels[i]
+            label_j = sample_labels[j]
+
             normal_i = normality_results[label_i]['normal']
             normal_j = normality_results[label_j]['normal']
-            
+
             if normal_i and normal_j:
                 test_name = 't-test'
-                stat, p_value = ttest_ind(data_list[i], data_list[j], equal_var=False)
+                stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
             else:
                 test_name = 'mannwhitney'
-                stat, p_value = mannwhitneyu(data_list[i], data_list[j], alternative='two-sided')
+                stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
 
             sig_symbol = get_significance_symbol(p_value)
             pair_key = f"{label_i} vs {label_j}"
@@ -226,44 +372,69 @@ def jitter_boxplots_confPerc(results_dir_list, labels, destination_dir, rgb_list
             }
 
             x1, x2 = i + 1, j + 1
-            base_y = max(np.max(data_list[i]), np.max(data_list[j])) + base_gap
-            stack_level = y_stacks[base_y]
-            y = base_y + stack_level * stack_gap
-            y_stacks[base_y] += 1
-            plt.plot([x1, x2], [y, y], color='black', linewidth=1)
-            plt.text((x1 + x2) / 2, y + text_offset, sig_symbol, ha='center', va='bottom')
-            
-            max_annotation_y = max(max_annotation_y, y + text_offset)
+            local_max = max(max_vals[i], max_vals[j])
+            y = local_max + base_gap
 
+            # Check intermediate boxplots
+            intermediate_indices = [k for k in range(len(distribution_lists)) if x1 < (k + 1) < x2]
+            if intermediate_indices:
+                intermediate_max = max([max_vals[k] for k in intermediate_indices])
+                if intermediate_max + base_gap > y:
+                    y = intermediate_max + base_gap
 
-    all_values = np.concatenate(data_list)
+            annotations.append({
+                'x1': x1,
+                'x2': x2,
+                'y': y,
+                'sig_symbol': sig_symbol,
+            })
+
+    # Sort annotations by y and stack if overlapping
+    annotations.sort(key=lambda x: x['y'])
+    for idx in range(1, len(annotations)):
+        prev = annotations[idx - 1]
+        curr = annotations[idx]
+        if curr['y'] - prev['y'] < stack_gap:
+            annotations[idx]['y'] = prev['y'] + stack_gap
+
+    max_annotation_y = 0
+    for ann in annotations:
+        plt.plot([ann['x1'], ann['x2']], [ann['y'], ann['y']], color='black', linewidth=1)
+        plt.text((ann['x1'] + ann['x2']) / 2, ann['y'] + text_offset, ann['sig_symbol'], ha='center', va='bottom')
+        max_annotation_y = max(max_annotation_y, ann['y'] + text_offset)
+
+    all_values = np.concatenate(distribution_lists)
     padding = 0.1 * (np.max(all_values) - np.min(all_values))
-    plt.ylim(np.min(all_values) - padding, max_annotation_y + padding) 
+    plt.ylim(np.min(all_values) - padding, max_annotation_y + padding)
 
-
-    # Create output directory
     os.makedirs(destination_dir, exist_ok=True)
-    plot_path = os.path.join(destination_dir, '_'.join(labels) + '_confPerc_boxplots.pdf')
+
+    if parameter == 'confPerc':
+        destination_subdir = os.path.join(destination_dir, parameter)
+    else:
+        destination_subdir = os.path.join(destination_dir, parameter, segmentation_state)
+
+    os.makedirs(destination_subdir, exist_ok=True)
+    plot_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_jitterPlots.pdf')
     plt.savefig(plot_path)
     plt.show()
 
-    # Write summary to .txt
-    summary_path = os.path.join(destination_dir, '_'.join(labels) + '_confPerc_summary.txt')
-    with open(summary_path, 'w', encoding='utf-8') as f:
-        f.write("=== Percentage confined per FOV Comparison Summary ===\n\n")
+    txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_stats.txt')
+    with open(txt_path, 'w', encoding='utf-8') as f:
+        f.write(f"=== {y_var} - Stats Summary ===\n\n")
 
-        f.write(">> Means (%):\n")
-        for label in labels:
+        f.write(f">> Means ({unit}):\n")
+        for label in sample_labels:
             f.write(f"{label}: {means[label]:.5f}\n")
         f.write("\n")
 
-        f.write(">> Standard Deviations (%):\n")
-        for label in labels:
+        f.write(f">> Standard Deviations ({unit}):\n")
+        for label in sample_labels:
             f.write(f"{label}: {stds[label]:.5f}\n")
         f.write("\n")
 
         f.write(">> Normality Test (Shapiro-Wilk):\n")
-        for label in labels:
+        for label in sample_labels:
             res = normality_results[label]
             normal_str = "Normal" if res['normal'] else "Not normal"
             f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
@@ -275,377 +446,212 @@ def jitter_boxplots_confPerc(results_dir_list, labels, destination_dir, rgb_list
 
 
 
-# MEAN UNCONFINED DIFFUSION CONSTANTS per FOV
 
-def extracting_avg_unconf_diffConstants(results_directory):
-    """
-    Args: path of results directory generated by the matlab tracking data analysis
-    Returns:
-        - list of mean unconf diffusion constants corresponding to all fovs
-        - integer: total number of fovs
-        - int: number of fovs that have at least one unconfined trajectory
-        - float: mean number of unconf counts per fov  
-    """
-    diffusionConst_filepath = os.path.join(results_directory, 'Unconfined', 'diffusionConst.csv')
-    df = pd.read_csv(diffusionConst_filepath)
+
+
+
+
+
+
+
+
+
+
+# def perFOV_jitter_multi_old(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=None, rgb_list=None):
+#     means = {}
+#     stds = {}
+#     normality_results = {}
+#     test_results = {}
+
+
+#     param_list = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
+#     segmentation_state_list = ['Confined', 'Unconfined', 'AllTrajectories']
+
+#     if parameter == 'confPerc':
+#         distribution_lists = [extracting_confPerc_values(results_dir) for results_dir in results_dir_list] 
+#         y_var = 'Percentage of Trajectories Confined per FOV (%)' 
+#         unit = '%'
+#         segmentation_state = ''
+#         new_label = ''
+
+#     elif parameter in param_list:
+#         if segmentation_state in segmentation_state_list:
+#             distribution_lists = [extract_biophysical_param(results_dir, parameter, segmentation_state) for results_dir in results_dir_list]
+#             if segmentation_state == 'Confined':
+#                 new_label = 'Chromatin-Bound'
+#             elif segmentation_state == 'Unconfined':
+#                 new_label = 'Freely-Diffusing'
+#             elif segmentation_state == 'AllTrajectories':
+#                 new_label = 'All'
+#         else: 
+#             print('Classification state not specified, defaulting to AllTrajectories')
+#             segmentation_state = 'AllTrajectories'
+#             new_label = 'All'
+#             distribution_lists = [extract_biophysical_param(results_dir, parameter, segmentation_state) for results_dir in results_dir_list]
+        
+#         if parameter == 'alpha':
+#             y_var = f'Mean {parameter} per FOV - {new_label} Trajectories'
+#             unit = ''
+#         elif parameter == 'diffusionConst':
+#             y_var = f'Mean {parameter} per FOV (μm$^2$/s) - {new_label} Trajectories'
+#             unit = 'μm²/s'
+#         elif parameter == 'driftMagnitude':
+#             y_var = f'Mean {parameter} per FOV (μm/s) - {new_label} Trajectories'
+#             unit = 'μm/s'
+#         elif parameter == 'Lc':
+#             y_var = f'Mean {parameter} per FOV (μm) - {new_label} Trajectories'
+#             unit = 'μm'
+#         else:
+#             raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list}.")
+                
+#     else:
+#         raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list} or 'confPerc'.")
+
+
+#     for label, dist_list in zip(sample_labels, distribution_lists):
+#         means[label] = np.mean(dist_list)
+#         stds[label] = np.std(dist_list)
+#         stat, p = shapiro(dist_list)
+#         normality_results[label] = {
+#             'statistic': stat,
+#             'p_value': p,   
+#             'normal': p > 0.05
+#         }
+
+#     xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(distribution_lists)]
     
-    np_avg_diffusionConst_list = [] 
-
-    for x in (df['datasetIdx']).unique():
-        df_perfov = df[df['datasetIdx'] == x]
-        np_avg_diffusionConst_list.append(np.mean(df_perfov['diffusionConst']))
     
-    avg_diffusionConst_list = [float(x) for x in np_avg_diffusionConst_list]
+#     width_per_dataset = 6.4 / 3 
+#     fig_width = width_per_dataset * len(distribution_lists)
+#     plt.figure(figsize=(fig_width, 4.8))
 
-    # total number of fovs
-    total_number_of_fovs = (df['datasetIdx'].max())
+#     if len(distribution_lists) == 2:
+#         plt.boxplot(
+#         distribution_lists,
+#         tick_labels=sample_labels,
+#         widths = 0.28,
+#         medianprops=dict(color='black'))
+#     else:
+#         plt.boxplot(
+#         distribution_lists,
+#         tick_labels=sample_labels,
+#         medianprops=dict(color='black'))
 
-    # number of fovs with unconfined trajectories
-    fovs_with_unconfinedcounts = len(df['datasetIdx'].value_counts().tolist())
+#     plt.ylabel(y_var)
+
+
+#     if rgb_list:
+#         if len(rgb_list) != len(distribution_lists):
+#             print("number of rgb codes provided doesn't match number of datasets to compare")
+#         for x, val, rgb in zip(xs, distribution_lists, rgb_list):
+#             plt.scatter(x, val, color=rgb, alpha=0.4)
     
-    # mean number of unconfined trajectories amongst fovs that do have at least 1 unconfined trajectory
-    mean_unconf_traj_counts = np.mean(df['datasetIdx'].value_counts().tolist())
-
-    return [avg_diffusionConst_list, total_number_of_fovs, fovs_with_unconfinedcounts, mean_unconf_traj_counts]
-
-def distribution_unconf_diffusionConst(results_dir, molecule_name, destination_dir):
-    
-    plt.figure(figsize=(8, 3))
-    sns.boxplot(x=extracting_avg_unconf_diffConstants(results_dir)[0], width=0.5, color="lightblue", orient='h')
-    sns.stripplot(x=extracting_avg_unconf_diffConstants(results_dir)[0], jitter=True, color='black', alpha=0.5, size=5, orient='h')
-    plt.title(molecule_name)
-    plt.xlabel('Mean Unconfined Diffusion Constant per FOV (μm$^2$/s)')
-    plt.tight_layout()
-
-    destination_path = os.path.join(destination_dir, molecule_name + '_diffusionConst_boxplot.png')
-    plt.savefig(destination_path, dpi = 300)
-    plt.show()
-
-def jitter_boxplots_unconf_diffusionConst(results_dir_list, labels, destination_dir, rgb_list=None):
-    data_list = []
-    means = {}
-    stds = {}
-    normality_results = {}
-    test_results = {}
-
-    for label, dir in zip(labels, results_dir_list):
-        diffConst_list = extracting_avg_unconf_diffConstants(dir)[0]
-        data_list.append(diffConst_list)
-        means[label] = np.mean(diffConst_list)
-        stds[label] = np.std(diffConst_list)
-        stat, p = shapiro(diffConst_list)
-        normality_results[label] = {
-            'statistic': stat,
-            'p_value': p,
-            'normal': p > 0.05
-        }
-
-    xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(data_list)]
-    
-    
-    width_per_dataset = 6.4 / 3 
-    fig_width = width_per_dataset * len(data_list)
-    plt.figure(figsize=(fig_width, 4.8))
-
-    if len(data_list) == 2:
-        plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        widths = 0.28,
-        medianprops=dict(color='black'))
-    else:
-        plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        medianprops=dict(color='black'))
-
-    plt.ylabel('Mean Unconfined Diffusion Constant per FOV (μm$^2$/s)')
-
-
-    if rgb_list:
-        if len(rgb_list) != len(data_list):
-            print("number of rgb codes provided doesn't match number of datasets to compare")
-        for x, val, rgb in zip(xs, data_list, rgb_list):
-            plt.scatter(x, val, color=rgb, alpha=0.4)
-    
-    else:
-        clevels = np.linspace(0., 1., len(data_list))
-        for x, val, clevel in zip(xs, data_list, clevels):
-            plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
+#     else:
+#         clevels = np.linspace(0., 1., len(distribution_lists))
+#         for x, val, clevel in zip(xs, distribution_lists, clevels):
+#             plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
         
 
-    def get_significance_symbol(p_value):
-        if p_value < 0.0001: return "****"
-        elif p_value < 0.001: return "***"
-        elif p_value < 0.01: return "**"
-        elif p_value < 0.05: return "*"
-        else: return "ns"
+#     def get_significance_symbol(p_value):
+#         if p_value < 0.0001: return "****"
+#         elif p_value < 0.001: return "***"
+#         elif p_value < 0.01: return "**"
+#         elif p_value < 0.05: return "*"
+#         else: return "ns"
 
-    y_stacks = defaultdict(int)
+#     y_stacks = defaultdict(int)
     
-    max_value = np.max([np.max(data) for data in data_list])
-    base_gap = max_value * 0.03  # for example, 3% of the max value
-    stack_gap = max_value * 0.05
-    text_offset = 0.0
+#     max_value = np.max([np.max(data) for data in distribution_lists])
+#     base_gap = max_value * 0.03  # for example, 3% of the max value
+#     stack_gap = max_value * 0.05
+#     text_offset = 0.0
 
-    max_annotation_y = 0
+#     max_annotation_y = 0
 
-    for i in range(len(data_list)):
-        for j in range(i + 1, len(data_list)):
-            label_i = labels[i]
-            label_j = labels[j]
-            normal_i = normality_results[label_i]['normal']
-            normal_j = normality_results[label_j]['normal']
+#     for i in range(len(distribution_lists)):
+#         for j in range(i + 1, len(distribution_lists)):
+#             label_i = sample_labels[i]
+#             label_j = sample_labels[j]
+#             normal_i = normality_results[label_i]['normal']
+#             normal_j = normality_results[label_j]['normal']
             
-            if normal_i and normal_j:
-                test_name = 't-test'
-                stat, p_value = ttest_ind(data_list[i], data_list[j], equal_var=False)
-            else:
-                test_name = 'mannwhitney'
-                stat, p_value = mannwhitneyu(data_list[i], data_list[j], alternative='two-sided')
+#             if normal_i and normal_j:
+#                 test_name = 't-test'
+#                 stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
+#             else:
+#                 test_name = 'mannwhitney'
+#                 stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
 
-            sig_symbol = get_significance_symbol(p_value)
-            pair_key = f"{label_i} vs {label_j}"
-            test_results[pair_key] = {
-                'test': test_name,
-                'statistic': stat,
-                'p_value': p_value,
-                'significance': sig_symbol
-            }
+#             sig_symbol = get_significance_symbol(p_value)
+#             pair_key = f"{label_i} vs {label_j}"
+#             test_results[pair_key] = {
+#                 'test': test_name,
+#                 'statistic': stat,
+#                 'p_value': p_value,
+#                 'significance': sig_symbol
+#             }
 
-            x1, x2 = i + 1, j + 1
-            base_y = max(np.max(data_list[i]), np.max(data_list[j])) + base_gap
-            stack_level = y_stacks[base_y]
-            y = base_y + stack_level * stack_gap
-            y_stacks[base_y] += 1
-            plt.plot([x1, x2], [y, y], color='black', linewidth=1)
-            plt.text((x1 + x2) / 2, y + text_offset, sig_symbol, ha='center', va='bottom')
+#             x1, x2 = i + 1, j + 1
+
+#             tolerance = max_value * 0.05  # or some fraction of max_value
+#             def find_stack_key(base_y, y_stacks, tolerance):
+#                 # Find an existing key close to base_y within tolerance
+#                 for key in y_stacks.keys():
+#                     if abs(key - base_y) < tolerance:
+#                         return key
+#                 return base_y
+
+#             base_y = max(np.max(distribution_lists[i]), np.max(distribution_lists[j])) + base_gap
+#             stack_key = find_stack_key(base_y, y_stacks, tolerance)
+#             stack_level = y_stacks[stack_key]
+#             y = base_y + stack_level * stack_gap
+#             y_stacks[stack_key] += 1
+
+#             plt.plot([x1, x2], [y, y], color='black', linewidth=1)
+#             plt.text((x1 + x2) / 2, y + text_offset, sig_symbol, ha='center', va='bottom')
             
-            max_annotation_y = max(max_annotation_y, y + text_offset)
+#             max_annotation_y = max(max_annotation_y, y + text_offset)
 
 
-    all_values = np.concatenate(data_list)
-    padding = 0.1 * (np.max(all_values) - np.min(all_values))
-    plt.ylim(np.min(all_values) - padding, max_annotation_y + padding) 
+#     all_values = np.concatenate(distribution_lists)
+#     padding = 0.1 * (np.max(all_values) - np.min(all_values))
+#     plt.ylim(np.min(all_values) - padding, max_annotation_y + padding) 
 
 
-    # Create output directory
-    os.makedirs(destination_dir, exist_ok=True)
-    plot_path = os.path.join(destination_dir, '_'.join(labels) + '_diffusionConst_Unconfined_boxplots.pdf')
-    plt.savefig(plot_path, dpi=300)
-    plt.show()
+#     os.makedirs(destination_dir, exist_ok=True)
 
-    # Write summary to .txt
-    summary_path = os.path.join(destination_dir, '_'.join(labels) + '_diffusionConst_Unconfined_summary.txt')
-    with open(summary_path, 'w', encoding='utf-8') as f:
-        f.write("=== Unconfined diffConst Comparison Summary ===\n\n")
-
-        f.write(">> Means (μm²/s):\n")
-        for label in labels:
-            f.write(f"{label}: {means[label]:.5f}\n")
-        f.write("\n")
-
-        f.write(">> Standard Deviations (μm²/s):\n")
-        for label in labels:
-            f.write(f"{label}: {stds[label]:.5f}\n")
-        f.write("\n")
-
-        f.write(">> Normality Test (Shapiro-Wilk):\n")
-        for label in labels:
-            res = normality_results[label]
-            normal_str = "Normal" if res['normal'] else "Not normal"
-            f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
-        f.write("\n")
-
-        f.write(">> Pairwise Significance Tests:\n")
-        for pair, res in test_results.items():
-            f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
-
-
-
-
-# MEAN CONFINED DIFFUSION CONSTANTS per FOV
-
-def extracting_avg_conf_diffConstants(results_directory):
-    """
-    Args: path of results directory generated by the matlab tracking data analysis
-    Returns:
-        - list of mean conf diffusion constants corresponding to all fovs
-        - integer: total number of fovs
-        - int: number of fovs that have at least one confined trajectory
-        - float: mean number of conf counts per fov  
-    """
-    diffusionConst_filepath = os.path.join(results_directory, 'Confined', 'diffusionConst.csv')
-    df = pd.read_csv(diffusionConst_filepath)
+#     if parameter == 'confPerc':
+#         destination_subdir = os.path.join(destination_dir, parameter)
+#     else:
+#         destination_subdir = os.path.join(destination_dir, parameter, segmentation_state)
     
-    np_avg_diffusionConst_list = [] 
+#     os.makedirs(destination_subdir, exist_ok=True)
+#     plot_path = os.path.join(destination_subdir, '_'.join(sample_labels) +'_jitterPlots.pdf')
+#     plt.savefig(plot_path)
+#     plt.show()
 
-    for x in (df['datasetIdx']).unique():
-        df_perfov = df[df['datasetIdx'] == x]
-        np_avg_diffusionConst_list.append(np.mean(df_perfov['diffusionConst']))
-    
-    avg_diffusionConst_list = [float(x) for x in np_avg_diffusionConst_list]
+#     txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_stats.txt')
+#     with open(txt_path, 'w', encoding='utf-8') as f:
+#         f.write(f"=== {y_var} - Stats Summary ===\n\n")
 
-    # total number of fovs
-    total_number_of_fovs = (df['datasetIdx'].max())
+#         f.write(f">> Means ({unit}):\n")
+#         for label in sample_labels:
+#             f.write(f"{label}: {means[label]:.5f}\n")
+#         f.write("\n")
 
-    # number of fovs with unconfined trajectories
-    fovs_with_confinedcounts = len(df['datasetIdx'].value_counts().tolist())
-    
-    # mean number of unconfined trajectories amongst fovs that do have at least 1 unconfined trajectory
-    mean_conf_traj_counts = np.mean(df['datasetIdx'].value_counts().tolist())
+#         f.write(f">> Standard Deviations ({unit}):\n")
+#         for label in sample_labels:
+#             f.write(f"{label}: {stds[label]:.5f}\n")
+#         f.write("\n")
 
-    return [avg_diffusionConst_list, total_number_of_fovs, fovs_with_confinedcounts, mean_conf_traj_counts]
+#         f.write(">> Normality Test (Shapiro-Wilk):\n")
+#         for label in sample_labels:
+#             res = normality_results[label]
+#             normal_str = "Normal" if res['normal'] else "Not normal"
+#             f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
+#         f.write("\n")
 
-def distribution_conf_diffusionConst(results_dir, molecule_name, destination_dir):
-    
-    plt.figure(figsize=(8, 3))
-    sns.boxplot(x=extracting_avg_conf_diffConstants(results_dir)[0], width=0.5, color="lightblue", orient='h')
-    sns.stripplot(x=extracting_avg_conf_diffConstants(results_dir)[0], jitter=True, color='black', alpha=0.5, size=5, orient='h')
-    plt.title(molecule_name)
-    plt.xlabel('Mean Confined Diffusion Constant per FOV (μm$^2$/s)')
-    plt.tight_layout()
+#         f.write(">> Pairwise Significance Tests:\n")
+#         for pair, res in test_results.items():
+#             f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
 
-    destination_path = os.path.join(destination_dir, molecule_name + '_confined_diffusionConst_boxplot.png')
-    plt.savefig(destination_path, dpi = 300)
-    plt.show()
-
-def jitter_boxplots_conf_diffusionConst(results_dir_list, labels, destination_dir, rgb_list=None):
-    data_list = []
-    means = {}
-    stds = {}
-    normality_results = {}
-    test_results = {}
-
-    for label, dir in zip(labels, results_dir_list):
-        diffConst_list = extracting_avg_conf_diffConstants(dir)[0]
-        data_list.append(diffConst_list)
-        means[label] = np.mean(diffConst_list)
-        stds[label] = np.std(diffConst_list)
-        stat, p = shapiro(diffConst_list)
-        normality_results[label] = {
-            'statistic': stat,
-            'p_value': p,
-            'normal': p > 0.05
-        }
-
-    xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(data_list)]
-    
-    
-    width_per_dataset = 6.4 / 3 
-    fig_width = width_per_dataset * len(data_list)
-    plt.figure(figsize=(fig_width, 4.8))
-
-    if len(data_list) == 2:
-        plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        widths = 0.28,
-        medianprops=dict(color='black'))
-    else:
-        plt.boxplot(
-        data_list,
-        tick_labels=labels,
-        medianprops=dict(color='black'))
-
-    plt.ylabel('Mean Confined Diffusion Constant per FOV (μm$^2$/s)')
-
-
-    if rgb_list:
-        if len(rgb_list) != len(data_list):
-            print("number of rgb codes provided doesn't match number of datasets to compare")
-        for x, val, rgb in zip(xs, data_list, rgb_list):
-            plt.scatter(x, val, color=rgb, alpha=0.4)
-    
-    else:
-        clevels = np.linspace(0., 1., len(data_list))
-        for x, val, clevel in zip(xs, data_list, clevels):
-            plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
-        
-
-    def get_significance_symbol(p_value):
-        if p_value < 0.0001: return "****"
-        elif p_value < 0.001: return "***"
-        elif p_value < 0.01: return "**"
-        elif p_value < 0.05: return "*"
-        else: return "ns"
-
-    y_stacks = defaultdict(int)
-    
-    max_value = np.max([np.max(data) for data in data_list])
-    base_gap = max_value * 0.03  # for example, 3% of the max value
-    stack_gap = max_value * 0.05
-    text_offset = 0.0
-
-    max_annotation_y = 0
-
-    for i in range(len(data_list)):
-        for j in range(i + 1, len(data_list)):
-            label_i = labels[i]
-            label_j = labels[j]
-            normal_i = normality_results[label_i]['normal']
-            normal_j = normality_results[label_j]['normal']
-            
-            if normal_i and normal_j:
-                test_name = 't-test'
-                stat, p_value = ttest_ind(data_list[i], data_list[j], equal_var=False)
-            else:
-                test_name = 'mannwhitney'
-                stat, p_value = mannwhitneyu(data_list[i], data_list[j], alternative='two-sided')
-
-            sig_symbol = get_significance_symbol(p_value)
-            pair_key = f"{label_i} vs {label_j}"
-            test_results[pair_key] = {
-                'test': test_name,
-                'statistic': stat,
-                'p_value': p_value,
-                'significance': sig_symbol
-            }
-
-            x1, x2 = i + 1, j + 1
-            base_y = max(np.max(data_list[i]), np.max(data_list[j])) + base_gap
-            stack_level = y_stacks[base_y]
-            y = base_y + stack_level * stack_gap
-            y_stacks[base_y] += 1
-            plt.plot([x1, x2], [y, y], color='black', linewidth=1)
-            plt.text((x1 + x2) / 2, y + text_offset, sig_symbol, ha='center', va='bottom')
-            
-            max_annotation_y = max(max_annotation_y, y + text_offset)
-
-
-    all_values = np.concatenate(data_list)
-    padding = 0.1 * (np.max(all_values) - np.min(all_values))
-    plt.ylim(np.min(all_values) - padding, max_annotation_y + padding) 
-
-
-    # Create output directory
-    os.makedirs(destination_dir, exist_ok=True)
-    plot_path = os.path.join(destination_dir, '_'.join(labels) + '_diffusionConst_Confined_boxplots.pdf')
-    plt.savefig(plot_path, dpi=300)
-    plt.show()
-
-    # Write summary to .txt
-    summary_path = os.path.join(destination_dir, '_'.join(labels) + '_diffusionConst_Confined_summary.txt')
-    with open(summary_path, 'w', encoding='utf-8') as f:
-        f.write("=== Confined diffConst Comparison Summary ===\n\n")
-
-        f.write(">> Means (μm²/s):\n")
-        for label in labels:
-            f.write(f"{label}: {means[label]:.5f}\n")
-        f.write("\n")
-
-        f.write(">> Standard Deviations (μm²/s):\n")
-        for label in labels:
-            f.write(f"{label}: {stds[label]:.5f}\n")
-        f.write("\n")
-
-        f.write(">> Normality Test (Shapiro-Wilk):\n")
-        for label in labels:
-            res = normality_results[label]
-            normal_str = "Normal" if res['normal'] else "Not normal"
-            f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
-        f.write("\n")
-
-        f.write(">> Pairwise Significance Tests:\n")
-        for pair, res in test_results.items():
-            f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
