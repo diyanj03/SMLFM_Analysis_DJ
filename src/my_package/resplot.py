@@ -139,7 +139,7 @@ def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, 
 
 
 
-# Jitter plots for per FOV biophysical parameters and confPerc values. multiple samples (+ significance test).
+# Jitter plots for per FOV biophysical parameters and confPerc values. multiple samples (+ significance test). Separate axis.
 def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=None, rgb_list=None):
     import os
     import numpy as np
@@ -210,6 +210,7 @@ def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_
 
     width_per_dataset = 6.4 / 3
     fig_width = width_per_dataset * len(distribution_lists)
+
     plt.figure(figsize=(fig_width, 4.8))
 
     if len(distribution_lists) == 2:
@@ -457,3 +458,333 @@ def batchProcess_jitterMulti(results_dir_list, sample_labels, destination_dir, r
         else:
             for segmentation_state in ['Unconfined', 'Confined', 'AllTrajectories']:
                 perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=segmentation_state,  rgb_list=rgb_list)
+
+
+
+
+
+
+
+# SAME AXIS JITTER PLOTS FOR THE DIFFERENT SEGMENTATION STATES
+
+def prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state):
+
+    means = {}
+    stds = {}
+    normality_results = {}
+    test_results = {}
+
+    param_list = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
+    segmentation_state_list = ['Confined', 'Unconfined', 'AllTrajectories']
+
+    if parameter == 'confPerc':
+        distribution_lists = [extracting_confPerc_values(results_dir) for results_dir in results_dir_list]
+        y_var = 'Percentage of Trajectories Confined per FOV (%)'
+        segmentation_state = ''
+        new_label = ''
+
+    elif parameter in param_list:
+        
+        distribution_lists = [extract_biophysical_param(results_dir, parameter, segmentation_state) for results_dir in results_dir_list]
+        if segmentation_state == 'Confined':
+            new_label = 'Chromatin-Bound'
+        elif segmentation_state == 'Unconfined':
+            new_label = 'Freely-Diffusing'
+        elif segmentation_state == 'AllTrajectories':
+            new_label = 'All'
+        else:
+            raise ValueError(f"Invalid parameter: {segmentation_state}. Choose from {segmentation_state_list}.")
+
+        if parameter == 'alpha':
+            y_var = f'Mean {parameter} per FOV - {new_label} Trajectories'
+            unit = ''
+        elif parameter == 'diffusionConst':
+            y_var = f'Mean {parameter} per FOV (μm$^2$/s) - {new_label} Trajectories'
+            unit = 'μm²/s'
+        elif parameter == 'driftMagnitude':
+            y_var = f'Mean {parameter} per FOV (μm/s) - {new_label} Trajectories'
+            unit = 'μm/s'
+        elif parameter == 'Lc':
+            y_var = f'Mean {parameter} per FOV (μm) - {new_label} Trajectories'
+            unit = 'μm'
+        else:
+            raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list}.")
+
+
+    else:
+        raise ValueError(f"Invalid parameter: {parameter}. Choose from {param_list} or 'confPerc'.")
+
+    for label, dist_list in zip(sample_labels, distribution_lists):
+        means[label] = np.mean(dist_list)
+        stds[label] = np.std(dist_list)
+        stat, p = shapiro(dist_list)
+        normality_results[label] = {
+            'statistic': stat,
+            'p_value': p,
+            'normal': p > 0.05
+        }
+
+    xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(distribution_lists)]
+
+    max_vals = [np.max(data) for data in distribution_lists]
+
+    
+    # Return all plotting-related variables and results
+    return {
+        'distribution_lists': distribution_lists,
+        'sample_labels': sample_labels,
+        'xs': xs,
+        'y_var': y_var,
+        'parameter': parameter,
+        'segmentation_state': segmentation_state,
+        'test_results': test_results,
+        'normality_results': normality_results,
+        'means': means,
+        'stds': stds,
+        'unit': unit,
+        'max_vals': max_vals,
+    }
+
+
+def get_annotations(distribution_lists, sample_labels, max_vals, max_max_vals, normality_results, test_results):
+    base_gap = max_max_vals * 0.03
+    stack_gap = max_max_vals * 0.08
+
+    def get_significance_symbol(p_value):
+        if p_value < 0.0001:
+            return "****"
+        elif p_value < 0.001:
+            return "***"
+        elif p_value < 0.01:
+            return "**"
+        elif p_value < 0.05:
+            return "*"
+        else:
+            return "ns"
+
+    annotations = []
+    for i in range(len(distribution_lists)):
+        for j in range(i + 1, len(distribution_lists)):
+            label_i = sample_labels[i]
+            label_j = sample_labels[j]
+
+            normal_i = normality_results[label_i]['normal']
+            normal_j = normality_results[label_j]['normal']
+
+            if normal_i and normal_j:
+                stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
+                test_name = 't-test'
+            else:
+                stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
+                test_name = 'mannwhitney'
+
+            sig_symbol = get_significance_symbol(p_value)
+            pair_key = f"{label_i} vs {label_j}"
+            test_results[pair_key] = {
+                'test': test_name,
+                'statistic': stat,
+                'p_value': p_value,
+                'significance': sig_symbol
+            }
+
+            x1, x2 = i + 1, j + 1
+            local_max = max(max_vals[i], max_vals[j])
+            y = local_max + base_gap
+
+            intermediate_indices = [k for k in range(len(distribution_lists)) if x1 < (k + 1) < x2]
+            if intermediate_indices:
+                intermediate_max = max([max_vals[k] for k in intermediate_indices])
+                if intermediate_max + base_gap > y:
+                    y = intermediate_max + base_gap
+
+            annotations.append({'x1': x1, 'x2': x2, 'y': y, 'sig_symbol': sig_symbol})
+
+    annotations.sort(key=lambda x: x['y'])
+    for idx in range(1, len(annotations)):
+        prev = annotations[idx - 1]
+        curr = annotations[idx]
+        if curr['y'] - prev['y'] < stack_gap:
+            annotations[idx]['y'] = prev['y'] + stack_gap
+
+
+    all_values = np.concatenate(distribution_lists)
+    padding = 0.1 * (np.max(all_values) - np.min(all_values))
+
+    max_annotation_y = 0
+    for ann in annotations:
+        max_annotation_y = max(max_annotation_y, ann['y'])
+
+    y_limit = (np.min(all_values) - padding, max_annotation_y + padding)
+
+
+    # Return all plotting-related variables and results
+    return {
+        'annotations': annotations,
+        'y_limit': y_limit
+    }
+
+
+def plot_jitter_boxplot(distribution_lists, sample_labels, xs, y_var, annotations,
+                        parameter, segmentation_state, test_results, normality_results,
+                        means, stds, unit, y_limit, destination_dir, rgb_list=None):
+
+    width_per_dataset = 6.4 / 3
+    fig_width = width_per_dataset * len(distribution_lists)
+    plt.figure(figsize=(fig_width, 4.8))
+
+    if len(distribution_lists) == 2:
+        plt.boxplot(
+            distribution_lists,
+            tick_labels=sample_labels,
+            widths=0.28,
+            medianprops=dict(color='black'))
+    else:
+        plt.boxplot(
+            distribution_lists,
+            tick_labels=sample_labels,
+            medianprops=dict(color='black'))
+
+    plt.ylabel(y_var)
+
+    if rgb_list:
+        if len(rgb_list) != len(distribution_lists):
+            print("number of rgb codes provided doesn't match number of datasets to compare")
+        for x, val, rgb in zip(xs, distribution_lists, rgb_list):
+            plt.scatter(x, val, color=rgb, alpha=0.4)
+    else:
+        clevels = np.linspace(0., 1., len(distribution_lists))
+        for x, val, clevel in zip(xs, distribution_lists, clevels):
+            plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
+
+    for ann in annotations:
+        plt.plot([ann['x1'], ann['x2']], [ann['y'], ann['y']], color='black', linewidth=1)
+        plt.text((ann['x1'] + ann['x2']) / 2, ann['y'], ann['sig_symbol'], ha='center', va='bottom')
+
+    plt.ylim(y_limit[0], y_limit[1])
+
+    os.makedirs(destination_dir, exist_ok=True)
+
+    if parameter == 'confPerc':
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter)
+    else:
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter, segmentation_state)
+
+    os.makedirs(destination_subdir, exist_ok=True)
+
+    plot_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_jitterPlots.pdf')
+    plt.savefig(plot_path)
+    plt.show()
+
+    txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_stats.txt')
+    with open(txt_path, 'w', encoding='utf-8') as f:
+        f.write(f"=== {y_var} - Stats Summary ===\n\n")
+
+        f.write(f">> Means ({unit}):\n")
+        for label in sample_labels:
+            f.write(f"{label}: {means[label]:.5f}\n")
+        f.write("\n")
+
+        f.write(f">> Standard Deviations ({unit}):\n")
+        for label in sample_labels:
+            f.write(f"{label}: {stds[label]:.5f}\n")
+        f.write("\n")
+
+        f.write(">> Normality Test (Shapiro-Wilk):\n")
+        for label in sample_labels:
+            res = normality_results[label]
+            normal_str = "Normal" if res['normal'] else "Not normal"
+            f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
+        f.write("\n")
+
+        f.write(">> Pairwise Significance Tests:\n")
+        for pair, res in test_results.items():
+            f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
+
+
+# Jitter plots for per FOV for a given biophysical parameter or confPerc for all segmentation states on same axis. multiple samples (+ significance test). Same axis!
+def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=None):
+    
+    prepped_all = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='AllTrajectories')
+    prepped_conf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Confined')
+    prepped_unconf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Unconfined')
+
+    all_prep_results = [prepped_all, prepped_conf, prepped_unconf]
+
+    # Get the maximum value across all datasets for all segmentation states
+    all_max_vals = []
+    for y in all_prep_results:
+        distribution_lists = y['distribution_lists']
+        max_vals = [np.max(data) for data in distribution_lists]
+        all_max_vals.append(max(max_vals))
+    max_max_val = np.max(all_max_vals)
+
+
+    annotation_result_unconf = get_annotations(
+        prepped_unconf['distribution_lists'],
+        prepped_unconf['sample_labels'],
+        prepped_unconf['max_vals'],
+        max_max_val,
+        prepped_unconf['normality_results'],
+        prepped_unconf['test_results']
+    )
+    
+    annotation_result_conf = get_annotations(
+        prepped_conf['distribution_lists'],
+        prepped_conf['sample_labels'],
+        prepped_conf['max_vals'],
+        max_max_val,
+        prepped_conf['normality_results'],
+        prepped_conf['test_results']
+    )
+
+    annotation_result_all = get_annotations( 
+        prepped_all['distribution_lists'],
+        prepped_all['sample_labels'],
+        prepped_all['max_vals'],
+        max_max_val,
+        prepped_all['normality_results'],
+        prepped_all['test_results']
+    )
+
+    all_annotation_results = [annotation_result_all, annotation_result_conf, annotation_result_unconf]
+
+
+    # Determine y_limit based on all results
+    y_mins = []
+    y_maxs = []
+    for ann_result in all_annotation_results:
+        y_mins.append(ann_result['y_limit'][0])
+        y_maxs.append(ann_result['y_limit'][1])
+    y_limit = (min(y_mins), max(y_maxs))
+
+
+    all_prep_results = [prepped_all, prepped_conf, prepped_unconf]# Plotting all thr
+    all_annotation_results = [annotation_result_all, annotation_result_conf, annotation_result_unconf]
+
+
+    for prepped_data, ann_data in zip(all_prep_results, all_annotation_results):
+        plot_jitter_boxplot(
+            prepped_data['distribution_lists'],
+            prepped_data['sample_labels'],
+            prepped_data['xs'],
+            prepped_data['y_var'],
+            ann_data['annotations'],
+            prepped_data['parameter'],
+            prepped_data['segmentation_state'],
+            prepped_data['test_results'],
+            prepped_data['normality_results'],
+            prepped_data['means'],
+            prepped_data['stds'],
+            prepped_data['unit'],
+            y_limit,
+            destination_dir,
+            rgb_list=rgb_list
+        )
+
+
+def batchProcess_jitterMulti_sx(results_dir_list, sample_labels, destination_dir, rgb_list=None):
+    for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
+        if parameter == 'confPerc':
+            perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=rgb_list)
+        else:
+            perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=rgb_list)
