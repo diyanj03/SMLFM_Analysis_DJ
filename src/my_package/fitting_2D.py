@@ -309,7 +309,7 @@ def _image_info(image):
         logging.warning(f"Error gathering image information: {e}")
 
 def _run_peak_fit(
-                  ij, java_timeseries, datasetName, root_directory, calibration, exposure_time, psf_model, spot_filter_type,
+                  ij, java_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
                   spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                   pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                   min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -331,7 +331,7 @@ def _run_peak_fit(
         macro_code = f"""
         run("Z Project...", "projection=[Average Intensity]");
         imageCalculator("Subtract create stack", "{datasetName}","AVG_{datasetName}");
-        run("Add...", "value=400 stack");
+        run("Add...", "value={offset_value} stack");
         run("Gaussian Blur...", "sigma=0.4 stack");
         selectWindow("{datasetName}")
         close();
@@ -438,6 +438,8 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
     ram = config_data.get('ram')
 
     # Override peak fit parameters
+    offset_value = config_data.get('offset_value')
+
     calibration = pf_params_config.get('calibration')
     exposure_time = pf_params_config.get('exposure_time')
     psf_model = pf_params_config.get('psf_model')
@@ -511,7 +513,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
                     _image_info(jv_timeseries)
 
-                    csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, calibration, exposure_time, psf_model, spot_filter_type,
+                    csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
                                                                                 spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                                 pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                                 min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -556,7 +558,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
             _image_info(jv_timeseries)
 
-            csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, calibration, exposure_time, psf_model, spot_filter_type,
+            csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
                                                                         spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                         pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                         min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 

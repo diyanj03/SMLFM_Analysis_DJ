@@ -3,6 +3,8 @@
   "my_dims": ["t", "row", "col"],
   "ram": "8",
 
+  "offset_value":"400",
+
   "peak_fit_params": {
     "calibration": "266",
     "exposure_time": "20",
