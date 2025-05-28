@@ -104,8 +104,6 @@ def _load_image(source_filepath, np_image, my_dims=('t', 'row', 'col')):
         return None
 
 
-
-
 def check_tifDir_compatibility(file_dir):
     """
     Args:
@@ -215,10 +213,6 @@ def check_tifDir_compatibility(file_dir):
     except Exception as e:
         raise RuntimeError(f"An unexpected error occurred: {e}")
 
-
-
-
-
 def _load_and_concat_images(source_dir, img_np_list, my_dims=('t', 'row', 'col')):
     """Loads and concatenates image files using tifffile and xarray.
     Args: source_directory of image stacks, list of numpy arrays of each image in order, dimensions.
@@ -247,7 +241,6 @@ def _load_and_concat_images(source_dir, img_np_list, my_dims=('t', 'row', 'col')
         logging.error(f"Failed to load and concatenate images: {e}")
         return None
     
-
 def _save_concatenated_image(xarr_timeseries, datasetName, root_directory):
     """Saves the concatenated image to a file."""
     tic = time.time()
