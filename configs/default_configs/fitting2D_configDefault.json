@@ -6,7 +6,7 @@
   "offset_value": "400",
 
   "peak_fit_params": {
-    "calibration": "266",
+    "calibration": "216",
     "exposure_time": "20",
     "psf_model": "Circular Gaussian 2D",
     "spot_filter_type": "Difference",
