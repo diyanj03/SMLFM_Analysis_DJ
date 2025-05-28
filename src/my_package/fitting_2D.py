@@ -383,7 +383,7 @@ def _run_peak_fit(
         df = pd.read_csv(csv_file_path, skiprows=8) 
         locs = len(df)
         logging.info(f"Number of 2D localisations fitted: {locs}.\n")
-        return csv_file_path
+        return csv_file_path, macro_code
 
     except Exception as e:
         logging.error(f"Peak fit failed: {e}")
@@ -519,7 +519,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                                                                                 min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
                                                                                 psf_parameter_1, precision_method, relative_threshold, absolute_threshold,
                                                                                 parameter_relative_threshold, parameter_absolute_threshold, max_iterations, lambdaa,
-                                                                                image_scale, image_size, image_pixel_size)
+                                                                                image_scale, image_size, image_pixel_size)[0]
         
         except Exception as e:
             logging.error(f"An error occurred in peak fitting pipeline: {e}")
@@ -564,7 +564,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                                                                         min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
                                                                         psf_parameter_1, precision_method, relative_threshold, absolute_threshold,
                                                                         parameter_relative_threshold, parameter_absolute_threshold, max_iterations, lambdaa,
-                                                                        image_scale, image_size, image_pixel_size)
+                                                                        image_scale, image_size, image_pixel_size)[0]
             return csv_file_path
 
         except Exception as e:
