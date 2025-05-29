@@ -437,6 +437,21 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
         plt.savefig(destination_path)
         plt.show()
 
+        stats_file_path = os.path.join(destination_subdir, '_'.join(sample_names) + '_stats.txt')
+
+        with open(stats_file_path, 'w') as f:
+            for i, row in results_df.iterrows():
+                f.write('=== association values (tau) and 95% confidence intervals (tau_lower and tau_upper) ===\n\n')
+                f.write(f"Sample: {row['source']}\n")
+                tau_cols = [col for col in results_df.columns if col.startswith('tau_') and not col.endswith('_lower') and not col.endswith('_upper')]
+                for tau_col in tau_cols:
+                    val = round(row[tau_col], 4)
+                    lower = round(row[tau_col + '_lower'], 4)
+                    upper = round(row[tau_col + '_upper'], 4)
+                    f.write(f"  {tau_col} = {val} | {tau_col}_lower = {lower} | {tau_col}_upper = {upper}\n")
+                f.write("\n")
+
+
     # Generate the plot
     plotting_association_values(results_df, destination_dir)
 
