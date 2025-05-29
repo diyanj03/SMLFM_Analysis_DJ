@@ -105,7 +105,7 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             %
             % obj.PlotUnconfinedTrajectories;
             %
-            % obj.PlotAllTrajectoriesUnconfinedConfined;
+            obj.PlotAllTrajectoriesUnconfinedConfined;
             %
             % obj.InspectTrajectories;
             %
