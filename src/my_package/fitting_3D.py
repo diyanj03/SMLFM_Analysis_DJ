@@ -124,12 +124,15 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
             print('If not, type "no", then adjust the MLA rotation and/or offset in the configuration and rerun this cell.')
             plt.show()
             while True:
-                data = input('\nAre the lens centres aligned with the data? [yes/no]: ')
-                data = 'y' if data == '' else data[0].casefold()
+                data = input('\nAre the lens centres aligned with the data? [yes/no]: ').strip().lower()
+                
+                if data == '':  # treat empty as 'yes'
+                    data = 'yes'
+
                 if data not in ('yes', 'no'):
                     print('Not an appropriate choice.')
                 else:
-                    if data == 'n':
+                    if data == 'no':
                         return None, None
                     break
             print('')
