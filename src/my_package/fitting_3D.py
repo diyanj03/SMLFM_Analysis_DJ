@@ -119,9 +119,9 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
 
         if cfg.confirm_mla_alignment:
             tic = time.time()
-            print('\nVerify that the lenses are properly aligned with the data in the figure.' 
+            print('\nVerify that the lenses are properly aligned with the data in the figure. ' 
                   'If alignment is correct, type "yes" in the input prompt to confirm.')
-            print('If not, type "no", then adjust the MLA rotation and/or offset in the configuration and rerun this cell.')
+            print('If not, type "no", then adjust the MLA rotation and/or offset in the configuration and re-run this cell.')
             plt.show()
             while True:
                 data = input('\nAre the lens centres aligned with the data? [yes/no]: ').strip().lower()
@@ -446,7 +446,7 @@ def fittingAxialLocs_opt(csv_file_path, root_dir, config_name=None, cfg=None):
         if cfg.confirm_mla_alignment:
             tic = time.time()
             print('\nCheck on the figure that the lenses are well aligned with the'
-                  ' data. Then close the window(s) to continue.')
+                  ' data. Then close the window(s) to continue. ')
             print('If the alignment is incorrect, adjust MLA rotation and/or offset in the configuration,'
                   ' and run this application again.')
             plt.show()
