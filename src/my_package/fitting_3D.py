@@ -129,7 +129,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
                 if data not in ('yes', 'no'):
                     print('Not an appropriate choice.')
                 else:
-                    if data == 'no':
+                    if data == 'n':
                         return None, None
                     break
             print('')
