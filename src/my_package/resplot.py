@@ -6,7 +6,7 @@ import numpy as np
 import seaborn as sns
 from scipy import stats
 from collections import defaultdict
-from scipy.stats import mannwhitneyu, shapiro, ttest_ind
+from scipy.stats import mannwhitneyu, shapiro, ttest_ind, levene, f
 
 
 # Extracting percentage confined per FOV from results directory
@@ -49,6 +49,15 @@ def extract_biophysical_param(results_dir, param, conf_or_unconf_or_all):
 
 # Jitter plots for per FOV biophysical parameters and confPerc values. single sample.
 def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, segmentation_state=None):
+    """
+    Args:
+    - results_dir (str): path of results directory
+    - parameter (str): param of interest
+    - sample_label (str): label of sample to be used on the plots
+    - destination_dir (str): destination path
+    - segmentation_state (str): classified state of interest.
+    """
+    
     plt.figure(figsize=(8, 3))
     
     param_list = ['alpha', 'diffusionConst', 'driftMagnitude', 'Kc', 'Lc']
@@ -125,28 +134,22 @@ def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, 
     plt.show()
     
     txt_path = os.path.join(destination_subdir, 'stats.txt')
-    with open(txt_path, 'w', encoding='utf-8') as f:
-        f.write(f"=== {y_var} - Stats Summary ===\n\n")
+    with open(txt_path, 'w', encoding='utf-8') as fileHandle:
+        fileHandle.write(f"=== {y_var} - Stats Summary ===\n\n")
 
-        f.write(f">> Number of FOVs: {number_of_fovs}\n")
-        f.write(f">> Mean ({unit}): {mean:.3f}\n")
-        f.write(f">> Standard Deviation ({unit}): {std:.3f}\n")
+        fileHandle.write(f">> Number of FOVs: {number_of_fovs}\n")
+        fileHandle.write(f">> Mean ({unit}): {mean:.3f}\n")
+        fileHandle.write(f">> Standard Deviation ({unit}): {std:.3f}\n")
 
-        f.write(">> Normality Test (Shapiro-Wilk):\n")
+        fileHandle.write(">> Normality Test (Shapiro-Wilk):\n")
 
         normal_str = "Normal" if normality_result['normal'] else "Not normal"
-        f.write(f"statistic = {normality_result['statistic']:.4f}, p = {normality_result['p_value']:.4f} → {normal_str}\n")
+        fileHandle.write(f"statistic = {normality_result['statistic']:.4f}, p = {normality_result['p_value']:.4f} → {normal_str}\n")
 
 
 
 # Jitter plots for per FOV biophysical parameters and confPerc values. multiple samples (+ significance test). Separate axis.
 def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=None, rgb_list=None):
-    import os
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from collections import defaultdict
-    from scipy.stats import shapiro, ttest_ind, mannwhitneyu
-    from matplotlib import cm
 
     means = {}
     stds = {}
@@ -267,17 +270,40 @@ def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_
             if normal_i and normal_j:
                 test_name = 't-test'
                 stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
+                var_test_name = "f-test"
+                
+                var1 = np.var(distribution_lists[i], ddof=1)
+                var2 = np.var(distribution_lists[j], ddof=1)
+                if var1 > var2:
+                    F = var1 / var2
+                    dfn = len(distribution_lists[i]) - 1
+                    dfd = len(distribution_lists[j]) - 1
+                else:
+                    F = var2 / var1
+                    dfn = len(distribution_lists[j]) - 1
+                    dfd = len(distribution_lists[i]) - 1
+                var_stat = F
+                var_p_value = 2 * min(f.cdf(F, dfn, dfd), 1 - f.cdf(F, dfn, dfd))
+                
             else:
                 test_name = 'mannwhitney'
                 stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
+                var_test_name = "levene's"
+                var_stat, var_p_value = levene(distribution_lists[i], distribution_lists[j], center='median')
 
             sig_symbol = get_significance_symbol(p_value)
+            var_sig_symbol = get_significance_symbol(var_p_value)
+
             pair_key = f"{label_i} vs {label_j}"
             test_results[pair_key] = {
                 'test': test_name,
                 'statistic': stat,
                 'p_value': p_value,
-                'significance': sig_symbol
+                'significance': sig_symbol,
+                'var_test': var_test_name,
+                'var_statistic': var_stat,
+                'var_p_value': var_p_value,
+                'var_significance': var_sig_symbol
             }
 
             x1, x2 = i + 1, j + 1
@@ -330,29 +356,30 @@ def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_
     plt.show()
 
     txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_stats.txt')
-    with open(txt_path, 'w', encoding='utf-8') as f:
-        f.write(f"=== {y_var} - Stats Summary ===\n\n")
+    with open(txt_path, 'w', encoding='utf-8') as fileHandle:
+        fileHandle.write(f"=== {y_var} - Stats Summary ===\n\n")
 
-        f.write(f">> Means ({unit}):\n")
+        fileHandle.write(f">> Means ({unit}):\n")
         for label in sample_labels:
-            f.write(f"{label}: {means[label]:.5f}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: {means[label]:.5f}\n")
+        fileHandle.write("\n")
 
-        f.write(f">> Standard Deviations ({unit}):\n")
+        fileHandle.write(f">> Standard Deviations ({unit}):\n")
         for label in sample_labels:
-            f.write(f"{label}: {stds[label]:.5f}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: {stds[label]:.5f}\n")
+        fileHandle.write("\n")
 
-        f.write(">> Normality Test (Shapiro-Wilk):\n")
+        fileHandle.write(">> Normality Test (Shapiro-Wilk):\n")
         for label in sample_labels:
             res = normality_results[label]
             normal_str = "Normal" if res['normal'] else "Not normal"
-            f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
+        fileHandle.write("\n")
 
-        f.write(">> Pairwise Significance Tests:\n")
+        fileHandle.write(">> Pairwise Significance Tests:\n")
         for pair, res in test_results.items():
-            f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
+            fileHandle.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
+            fileHandle.write(f"{pair}: {res['var_test']} | stat = {res['var_statistic']:.4f}, p = {res['var_p_value']:.4g}, sig = {res['var_significance']}\n")
 
 
 
@@ -439,17 +466,17 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
 
         stats_file_path = os.path.join(destination_subdir, '_'.join(sample_names) + '_stats.txt')
 
-        with open(stats_file_path, 'w') as f:
+        with open(stats_file_path, 'w') as fileHandle:
             for i, row in results_df.iterrows():
-                f.write('=== association values (tau) and 95% confidence intervals (tau_lower and tau_upper) ===\n\n')
-                f.write(f"Sample: {row['source']}\n")
+                fileHandle.write('=== association values (tau) and 95% confidence intervals (tau_lower and tau_upper) ===\n\n')
+                fileHandle.write(f"Sample: {row['source']}\n")
                 tau_cols = [col for col in results_df.columns if col.startswith('tau_') and not col.endswith('_lower') and not col.endswith('_upper')]
                 for tau_col in tau_cols:
                     val = round(row[tau_col], 4)
                     lower = round(row[tau_col + '_lower'], 4)
                     upper = round(row[tau_col + '_upper'], 4)
-                    f.write(f"  {tau_col} = {val} | {tau_col}_lower = {lower} | {tau_col}_upper = {upper}\n")
-                f.write("\n")
+                    fileHandle.write(f"  {tau_col} = {val} | {tau_col}_lower = {lower} | {tau_col}_upper = {upper}\n")
+                fileHandle.write("\n")
 
 
     # Generate the plot
@@ -459,6 +486,12 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
 
 # Batch processing jitter for all biophysical params and all segmentation states.
 def batchProcess_jitterSingle(results_dir, sample_label, destination_dir):  
+    """
+    Args:
+    - results_dir (str): path of results directory
+    - sample_label (str): sample label to be used on plots
+    - destination_dir (str): destination path
+    """
     for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
         if parameter == 'confPerc':
             perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir)
@@ -587,19 +620,43 @@ def get_annotations(distribution_lists, sample_labels, max_vals, max_max_vals, n
             normal_j = normality_results[label_j]['normal']
 
             if normal_i and normal_j:
-                stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
                 test_name = 't-test'
+                stat, p_value = ttest_ind(distribution_lists[i], distribution_lists[j], equal_var=False)
+                var_test_name = "f-test"
+                
+                var1 = np.var(distribution_lists[i], ddof=1)
+                var2 = np.var(distribution_lists[j], ddof=1)
+                if var1 > var2:
+                    F = var1 / var2
+                    dfn = len(distribution_lists[i]) - 1
+                    dfd = len(distribution_lists[j]) - 1
+                else:
+                    F = var2 / var1
+                    dfn = len(distribution_lists[j]) - 1
+                    dfd = len(distribution_lists[i]) - 1
+                var_stat = F
+                var_p_value = 2 * min(f.cdf(F, dfn, dfd), 1 - f.cdf(F, dfn, dfd))
+                
             else:
-                stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
                 test_name = 'mannwhitney'
+                stat, p_value = mannwhitneyu(distribution_lists[i], distribution_lists[j], alternative='two-sided')
+                var_test_name = "levene's"
+                var_stat, var_p_value = levene(distribution_lists[i], distribution_lists[j], center='median')
+
 
             sig_symbol = get_significance_symbol(p_value)
+            var_sig_symbol = get_significance_symbol(var_p_value)
             pair_key = f"{label_i} vs {label_j}"
+
             test_results[pair_key] = {
                 'test': test_name,
                 'statistic': stat,
                 'p_value': p_value,
-                'significance': sig_symbol
+                'significance': sig_symbol,
+                'var_test': var_test_name,
+                'var_statistic': var_stat,
+                'var_p_value': var_p_value,
+                'var_significance': var_sig_symbol
             }
 
             x1, x2 = i + 1, j + 1
@@ -691,34 +748,43 @@ def plot_jitter_boxplot(distribution_lists, sample_labels, xs, y_var, annotation
     plt.show()
 
     txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + '_stats.txt')
-    with open(txt_path, 'w', encoding='utf-8') as f:
-        f.write(f"=== {y_var} - Stats Summary ===\n\n")
+    with open(txt_path, 'w', encoding='utf-8') as fileHandle:
+        fileHandle.write(f"=== {y_var} - Stats Summary ===\n\n")
 
-        f.write(f">> Means ({unit}):\n")
+        fileHandle.write(f">> Means ({unit}):\n")
         for label in sample_labels:
-            f.write(f"{label}: {means[label]:.5f}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: {means[label]:.5f}\n")
+        fileHandle.write("\n")
 
-        f.write(f">> Standard Deviations ({unit}):\n")
+        fileHandle.write(f">> Standard Deviations ({unit}):\n")
         for label in sample_labels:
-            f.write(f"{label}: {stds[label]:.5f}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: {stds[label]:.5f}\n")
+        fileHandle.write("\n")
 
-        f.write(">> Normality Test (Shapiro-Wilk):\n")
+        fileHandle.write(">> Normality Test (Shapiro-Wilk):\n")
         for label in sample_labels:
             res = normality_results[label]
             normal_str = "Normal" if res['normal'] else "Not normal"
-            f.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
-        f.write("\n")
+            fileHandle.write(f"{label}: statistic = {res['statistic']:.4f}, p = {res['p_value']:.4f} → {normal_str}\n")
+        fileHandle.write("\n")
 
-        f.write(">> Pairwise Significance Tests:\n")
+        fileHandle.write(">> Pairwise Significance Tests:\n")
         for pair, res in test_results.items():
-            f.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
+            fileHandle.write(f"{pair}: {res['test']} | stat = {res['statistic']:.4f}, p = {res['p_value']:.4g}, sig = {res['significance']}\n")
+            fileHandle.write(f"{pair}: {res['var_test']} | stat = {res['var_statistic']:.4f}, p = {res['var_p_value']:.4g}, sig = {res['var_significance']}\n")
+
 
 
 # Jitter plots for per FOV for a given biophysical parameter or confPerc for all segmentation states on same axis. multiple samples (+ significance test). Same axis!
 def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=None):
-    
+    """
+    Args:
+    - results_dir_list (list of str): list of results directories to be compared
+    - parameter (str): parameter of interest. 'confPerc', 'Lc', 'alpha', 'diffusionConst', or 'driftMagnitude'
+    - sample_labels (list of str): sample labels in same order as results_dir_list
+    - destination_dir (str): destination folder path
+    - rgb_list (list of tuples): list of rgb colour codes in same order as results_dir_list (OTPIONAL)
+    """
     prepped_all = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='AllTrajectories')
     prepped_conf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Confined')
     prepped_unconf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Unconfined')
@@ -798,6 +864,13 @@ def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destinati
 
 
 def batchProcess_jitterMulti_sx(results_dir_list, sample_labels, destination_dir, rgb_list=None):
+    """
+    Args:
+    - results_dir_list (list of str): list of results directories to be compared
+    - sample_labels (list of str): sample labels in same order as results_dir_list
+    - destination_dir (str): destination folder path
+    - rgb_list (list of tuples): list of rgb colour codes in same order as results_dir_list (OTPIONAL)
+    """
     for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
         if parameter == 'confPerc':
             perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=rgb_list)
