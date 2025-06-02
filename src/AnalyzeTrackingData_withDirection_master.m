@@ -1,8 +1,12 @@
 classdef AnalyzeTrackingData_withDirection_master<handle
 
-    % Version 2025_05_06 (Last modified by Yuze)
-    % - Fix the bug where there is only one fit but tyring to plot 2nd
-    % - Change the working unit from nm into µm (e.g. Lc calculation)
+    % Version 2025_06_01 (Last modified by Yuze)
+    % - Add constraints to association/dissociation fitting: portions sum
+    % to one using stick-breaking, instead of each portion less than 1;
+    % - Improve asso/disso fitting with better starting points and higher
+    % maximum searching threshold;
+    % NOTE: In some cases, the best model may have f_i ~= 0, or very
+    % similar parameters fitted.
 
 
 
@@ -43,7 +47,7 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             'allowFrameSkipping', true,... % exclude trajectories with frame skipping
             'numHistFitTrials',5,...          % number histogram fitting trials
             'datasetName','',...           % dataset file name
-            'datasetPath',fullfile(pwd, '..', 'data', 'tracks'));            % dataset file path
+            'datasetPath',fullfile(pwd, '..', 'data', 'tracks'));              % dataset file path
     end
 
     properties (Access=private)
@@ -52,8 +56,8 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             'confined',[],...
             'unconfined',[]); % get axes limits for inspection of trajectories
         %
-        colors = struct('confined',[0, 0.447058823529412, 0.741176470588235],...
-            'unconfined',[0.85, 0.33, 0.1]) % 20ms
+        colors = struct('confined',[0, 0.447058823529412, 0.741176470588235],... rgb(0, 114, 189)
+            'unconfined',[0.85, 0.33, 0.1]) % 20ms  rgb(216, 84, 26)
         % 'unconfined',[0.30, 0.75, 0.93]) % 500ms
     end
 
@@ -1326,9 +1330,9 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                     N           = numel(obj.allTraj(tIdx).x(:));
                     t.ID        = ones(N,1).*obj.allTraj(tIdx).ID;
                     t.frame     = obj.allTraj(tIdx).frames(:);
-                    t.x         = obj.allTraj(tIdx).x(:);
-                    t.y         = obj.allTraj(tIdx).y(:);
-                    t.z         = obj.allTraj(tIdx).z(:);
+                    t.x         = obj.allTraj(tIdx).x(:) * 1000;  % in nm
+                    t.y         = obj.allTraj(tIdx).y(:) * 1000;  % in nm
+                    t.z         = obj.allTraj(tIdx).z(:) * 1000;  % in nm
                     t.confinementScore = obj.allTraj(tIdx).confinementScore(:);
                     t.confined  = double(obj.allTraj(tIdx).confined(:));
                     t.alpha     = obj.allTraj(tIdx).alpha(:);
@@ -1350,9 +1354,9 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                         N           = numel(obj.unconfined(tIdx).x(:));
                         t.ID        = ones(N,1).*obj.unconfined(tIdx).ID;
                         t.frame     = obj.unconfined(tIdx).frames(:);
-                        t.x         = obj.unconfined(tIdx).x(:);
-                        t.y         = obj.unconfined(tIdx).y(:);
-                        t.z         = obj.unconfined(tIdx).z(:);
+                        t.x         = obj.unconfined(tIdx).x(:) * 1000;  % in nm
+                        t.y         = obj.unconfined(tIdx).y(:) * 1000;  % in nm
+                        t.z         = obj.unconfined(tIdx).z(:) * 1000;  % in nm
                         t.confinementScore = obj.unconfined(tIdx).confinementScore(:);
                         t.confined  = double(obj.unconfined(tIdx).confined(:));
                         t.alpha     = ones(numel(t.x),1).*obj.unconfined(tIdx).alpha(:);
@@ -1374,9 +1378,9 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                         N           = numel(obj.confined(tIdx).x);
                         t.ID        = ones(N,1).*obj.confined(tIdx).ID;
                         t.frame     = obj.confined(tIdx).frames(:);
-                        t.x         = obj.confined(tIdx).x(:);
-                        t.y         = obj.confined(tIdx).y(:);
-                        t.z         = obj.confined(tIdx).z(:);
+                        t.x         = obj.confined(tIdx).x(:) * 1000;  % in nm
+                        t.y         = obj.confined(tIdx).y(:) * 1000;  % in nm
+                        t.z         = obj.confined(tIdx).z(:) * 1000;  % in nm
                         t.confinementScore = obj.confined(tIdx).confinementScore(:);
                         t.confined  = double(obj.confined(tIdx).confined(:));
                         t.alpha     = ones(numel(t.x),1).*obj.confined(tIdx).alpha(:);
@@ -1633,6 +1637,25 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                 cn  = coeffnames(obj.associationTime.fit);  % names
                 cv  = coeffvalues(obj.associationTime.fit); % values
 
+                theta = cv(2 : length(cv)/2);  % theta1 to theta4
+
+                f = NaN(1,length(theta));        % Initialize outputs as NaN
+                prod_term = 1;
+
+                for k = 1:length(theta)
+                    f(k) = prod_term * theta(k);
+                    prod_term = prod_term * (1 - theta(k));
+                end
+                cv(2 : length(cv)/2) = f;  % Replace theta with f1 to f4
+   
+                for i = 1:length(cn)
+                    if contains(cn{i}, 'theta')
+                        num = sscanf(cn{i}, 'theta%d');
+                        cn{i} = sprintf('f%d', num);
+                    end
+                end
+
+
                 if obj.params.exportCI
                     CI  = confint(obj.associationTime.fit);
                     cv  = [cv; CI];
@@ -1659,6 +1682,7 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                 cn  = coeffnames(obj.associationTime.allModels{end});  % names
                 cv  = nan(nModel, numel(cn)); % values
 
+
                 rsquares = zeros(nModel, 1);
                 BICs = zeros(nModel, 1);
 
@@ -1673,6 +1697,29 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                         num_cur_cv = numel(cur_cv);
                         cv(mIdx, 1:num_cur_cv/2) = cur_cv(1:num_cur_cv/2);
                         cv(mIdx, numel(cn)/2+1:numel(cn)/2+num_cur_cv/2) = cur_cv(num_cur_cv/2+1:end);
+                    end
+                end
+
+
+                % Process each row
+                for i = 1:size(cv,1)
+
+                    theta = cv(i,2:5);  % theta1 to theta4
+
+                    f = NaN(1,4);        % Initialize outputs as NaN
+                    prod_term = 1;
+
+                    for k = 1:4
+                        f(k) = prod_term * theta(k);
+                        prod_term = prod_term * (1 - theta(k));
+                    end
+                    cv(i,2:5) = f;  % Replace theta columns with f1 to f4
+                end
+
+                for i = 1:length(cn)
+                    if contains(cn{i}, 'theta')
+                        num = sscanf(cn{i}, 'theta%d');
+                        cn{i} = sprintf('f%d', num);
                     end
                 end
 
@@ -1707,6 +1754,25 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                 cn  = coeffnames(obj.dissociationTime.fit);  % names
                 cv  = coeffvalues(obj.dissociationTime.fit); % values
 
+                theta = cv(2 : length(cv)/2);  % theta1 to theta4
+
+                f = NaN(1,length(theta));        % Initialize outputs as NaN
+                prod_term = 1;
+
+                for k = 1:length(theta)
+                    f(k) = prod_term * theta(k);
+                    prod_term = prod_term * (1 - theta(k));
+                end
+                cv(2 : length(cv)/2) = f;  % Replace theta with f1 to f4
+
+                for i = 1:length(cn)
+                    if contains(cn{i}, 'theta')
+                        num = sscanf(cn{i}, 'theta%d');
+                        cn{i} = sprintf('f%d', num);
+                    end
+                end
+
+
                 if obj.params.exportCI
                     CI  = confint(obj.dissociationTime.fit);
                     cv  = [cv; CI];
@@ -1737,6 +1803,8 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                 rsquares = zeros(nModel, 1);
                 BICs = zeros(nModel, 1);
 
+
+                
                 for mIdx = 1:nModel
                     rsquares(mIdx) = obj.dissociationTime.allGOF{mIdx}.rsquare;
                     BICs(mIdx) = obj.dissociationTime.allGOF{mIdx}.BIC;
@@ -1750,6 +1818,30 @@ classdef AnalyzeTrackingData_withDirection_master<handle
                         cv(mIdx, numel(cn)/2+1:numel(cn)/2+num_cur_cv/2) = cur_cv(num_cur_cv/2+1:end);
                     end
                 end
+
+                % Process each row
+                for i = 1:size(cv,1)
+
+                    theta = cv(i,2:5);  % theta1 to theta4
+
+                    f = NaN(1,4);        % Initialize outputs as NaN
+                    prod_term = 1;
+
+                    for k = 1:4
+                        f(k) = prod_term * theta(k);
+                        prod_term = prod_term * (1 - theta(k));
+                    end
+                    cv(i,2:5) = f;  % Replace theta columns with f1 to f4
+                end
+
+                for i = 1:length(cn)
+                    if contains(cn{i}, 'theta')
+                        num = sscanf(cn{i}, 'theta%d');
+                        cn{i} = sprintf('f%d', num);
+                    end
+                end
+
+
 
                 for tIdx = 1:numel(cn)
                     t.(cn{tIdx}) = cv(:,tIdx);
@@ -2433,20 +2525,35 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             [y, edges] = histcounts(association_times, edges, 'Normalization','pdf');
 
 
-
-
-
-
             % take the midpoint
             x = (edges(1:end-1)+edges(2:end))./2;
 
 
             % calculte one exponential fitting
             f_1 = @(A,tau_1,x)(A.*exp(-x./tau_1));
-            f_2 = @(A,f1,tau_1,tau_2,x)(A.*(f1.*exp(-x./tau_1) + (1-f1).*exp(-x./tau_2)));
-            f_3 = @(A,f1,f2,tau_1,tau_2,tau_3,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + (1-f1-f2).*exp(-x./tau_3)));
-            f_4 = @(A,f1,f2,f3,tau_1,tau_2,tau_3,tau_4,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + f3.*exp(-x./tau_3) + (1-f1-f2-f3).*exp(-x./tau_4)));
-            f_5 = @(A,f1,f2,f3,f4,tau_1,tau_2,tau_3,tau_4,tau_5,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + f3.*exp(-x./tau_3) + f4.*exp(-x./tau_4) + (1-f1-f2-f3-f4).*exp(-x./tau_5)));
+            f_2 = @(A,theta1,tau_1,tau_2,x) ...
+                (A .* (theta1 .* exp(-x./tau_1) + (1 - theta1) .* exp(-x./tau_2)));
+
+            f_3 = @(A,theta1,theta2,tau_1,tau_2,tau_3,x) ...
+                (A .* ( ...
+                theta1 .* exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .*exp(-x./tau_2) + ...
+                (1 - theta1 - (1 - theta1) * theta2).*exp(-x./tau_3)));
+
+            f_4 = @(A,theta1,theta2,theta3,tau_1,tau_2,tau_3,tau_4,x) ... 
+                (A .* ( ... 
+                theta1 .*exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .* exp(-x./tau_2) + ...
+                (1 - theta1) * (1 - theta2) * theta3 .* exp(-x./tau_3) + ...
+                (1 - theta1 - (1 - theta1) * theta2 - (1 - theta1) * (1 - theta2) * theta3).* exp(-x./tau_4)));
+
+            f_5 = @(A,theta1,theta2,theta3,theta4,tau_1,tau_2,tau_3,tau_4,tau_5,x) ...
+                (A .* ( ...
+                theta1.*exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .* exp(-x./tau_2) + ...
+                (1 - theta1) * (1 - theta2) * theta3 .* exp(-x./tau_3) + ...
+                (1 - theta1) * (1 - theta2) * (1 - theta3) * theta4 .* exp(-x./tau_4) + ...
+                (1 - theta1 - (1 - theta1) * theta2 - (1 - theta1) * (1 - theta2) * theta3 - (1 - theta1) * (1 - theta2) * (1 - theta3) * theta4) .* exp(-x./tau_5)));
 
             f = {f_1, f_2, f_3, f_4, f_5};
 
@@ -2457,10 +2564,13 @@ classdef AnalyzeTrackingData_withDirection_master<handle
 
             for i = 1 : n_fit
 
+                fprintf("=== Associaiton: Fitting %d pop === \n", i)
                 fo = fitoptions('Method','NonlinearLeastSquares',...
+                    'MaxIter', 10000, ...
+                    'MaxFunEvals', 20000, ...
                     'Upper', [Inf ones(1,i-1) Inf(1,i)],...
                     'Lower', zeros(1,2*i),...
-                    'StartPoint', ones(1,2*i),...
+                    'StartPoint', [500, 1 ./ (i:-1:2), ones(1,i)/50],...  % 1/k, 1/k-1, ..., 1
                     'Robust','LAR');
 
                 [fit_models{i}, gof{i}] = fit(x', y', f{i}, fo);
@@ -2549,10 +2659,30 @@ classdef AnalyzeTrackingData_withDirection_master<handle
 
             % calculte one exponential fitting
             f_1 = @(A,tau_1,x)(A.*exp(-x./tau_1));
-            f_2 = @(A,f1,tau_1,tau_2,x)(A.*(f1.*exp(-x./tau_1) + (1-f1).*exp(-x./tau_2)));
-            f_3 = @(A,f1,f2,tau_1,tau_2,tau_3,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + (1-f1-f2).*exp(-x./tau_3)));
-            f_4 = @(A,f1,f2,f3,tau_1,tau_2,tau_3,tau_4,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + f3.*exp(-x./tau_3) + (1-f1-f2-f3).*exp(-x./tau_4)));
-            f_5 = @(A,f1,f2,f3,f4,tau_1,tau_2,tau_3,tau_4,tau_5,x)(A.*(f1.*exp(-x./tau_1) + f2.*exp(-x./tau_2) + f3.*exp(-x./tau_3) + f4.*exp(-x./tau_4) + (1-f1-f2-f3-f4).*exp(-x./tau_5)));
+            
+            f_2 = @(A,theta1,tau_1,tau_2,x) ...
+                (A .* (theta1 .* exp(-x./tau_1) + (1 - theta1) .* exp(-x./tau_2)));
+
+            f_3 = @(A,theta1,theta2,tau_1,tau_2,tau_3,x) ...
+                (A .* ( ...
+                theta1 .* exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .*exp(-x./tau_2) + ...
+                (1 - theta1 - (1 - theta1) * theta2).*exp(-x./tau_3)));
+
+            f_4 = @(A,theta1,theta2,theta3,tau_1,tau_2,tau_3,tau_4,x) ... 
+                (A .* ( ... 
+                theta1 .*exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .* exp(-x./tau_2) + ...
+                (1 - theta1) * (1 - theta2) * theta3 .* exp(-x./tau_3) + ...
+                (1 - theta1 - (1 - theta1) * theta2 - (1 - theta1) * (1 - theta2) * theta3).* exp(-x./tau_4)));
+
+            f_5 = @(A,theta1,theta2,theta3,theta4,tau_1,tau_2,tau_3,tau_4,tau_5,x) ...
+                (A .* ( ...
+                theta1.*exp(-x./tau_1) + ...
+                (1 - theta1) * theta2 .* exp(-x./tau_2) + ...
+                (1 - theta1) * (1 - theta2) * theta3 .* exp(-x./tau_3) + ...
+                (1 - theta1) * (1 - theta2) * (1 - theta3) * theta4 .* exp(-x./tau_4) + ...
+                (1 - theta1 - (1 - theta1) * theta2 - (1 - theta1) * (1 - theta2) * theta3 - (1 - theta1) * (1 - theta2) * (1 - theta3) * theta4) .* exp(-x./tau_5)));
 
             f = {f_1, f_2, f_3, f_4, f_5};
 
@@ -2563,10 +2693,13 @@ classdef AnalyzeTrackingData_withDirection_master<handle
 
             for i = 1 : n_fit
 
+                fprintf("=== Dissociaiton: Fitting %d pop === \n", i)
                 fo = fitoptions('Method','NonlinearLeastSquares',...
+                    'MaxIter', 10000, ...
+                    'MaxFunEvals', 20000, ...
                     'Upper', [Inf ones(1,i-1) Inf(1,i)],...
                     'Lower', zeros(1,2*i),...
-                    'StartPoint', ones(1,2*i),...
+                    'StartPoint', [500, 1 ./ (i:-1:2), ones(1,i)/50],...  % 1/k, 1/k-1, ..., 1
                     'Robust','LAR');
 
                 [fit_models{i}, gof{i}] = fit(x', y', f{i}, fo);
