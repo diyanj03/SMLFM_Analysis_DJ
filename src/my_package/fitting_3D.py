@@ -228,7 +228,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     if cfg.save_dir is not None and cfg.save_dir:
 
         timestamp_str = timestamp.strftime('%Y%m%d-%H%M%S')
-        subdir_name = Path(f'{cfg.csv_file.name}')
+        subdir_name = Path(cfg.csv_file.stem.replace('locs2D',''))
 
         results = smlfm.OutputFiles(cfg, subdir_name)
         print(f"Saving results to folder: '{results.folder.name}' within the 'data/3D_fitting_results' directory.")
@@ -281,7 +281,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
         print("SMLFM data processing failed.")
 
     print("Formatting the locs3D csv output to a suitable format for downstream processing...")
-    folder_name = f'{cfg.csv_file.name}'
+    folder_name = subdir_name
     folder_path = os.path.join(root_dir, 'data', '3D_fitting_results', folder_name)
     locs3d_path = os.path.join(folder_path, 'locs3D.csv')
 
@@ -311,7 +311,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     destination_dir = os.path.join(root_dir, 'data', 'formatted_3Dlocs')
     os.makedirs(destination_dir, exist_ok=True)
 
-    destination_file_name = folder_name.replace('_locs2D.csv', '_locs3D_formatted.csv')
+    destination_file_name = f'{subdir_name}_locs3D_formatted.csv'
     destination_path = os.path.join(destination_dir, destination_file_name)
 
     fm_df.to_csv(destination_path, index=False)
