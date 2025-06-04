@@ -3,12 +3,23 @@
   "my_dims": ["t", "row", "col"],
   "ram": "8",
 
-  "offset_value": "400",
 
-  "peak_fit_params": {
-    "calibration": "216",
+  "pre-processing": {
+    "run_background_subtraction": true,
+    "rb_radius": "5",
+    "sigma": "0.4",
+    "offset_value": "100"
+  },
+
+  "camera_settings": {
+    "calibration": "266",
     "exposure_time": "20",
-    "psf_model": "Circular Gaussian 2D",
+    "camera_bias": "100",
+    "gain": "6",
+    "read_noise": "1.2"
+  },
+
+  "maxima_identification": {
     "spot_filter_type": "Difference",
     "spot_filter": "Mean",
     "smoothing": "0.80",
@@ -16,32 +27,43 @@
     "smoothing2": "2.00",
     "search_width": "1",
     "border_width": "1",
-    "fitting_width": "4",
+    "fitting_width": "4"
+  },
+
+  "gaussian_fitting": {
+    "psf_model": "Circular Gaussian 2D",
+    "psf_parameter_1": "1.700",
     "fit_solver": "LVM LSE",
     "fail_limit": "3",
-    "pass_rate": "0.50",
-    "neighbour_height": "0.30",
-    "residuals_threshold": "1",
-    "duplicate_distance": "0.50",
+    "pass_rate": "0.50"
+  },
+
+  "fit_solver_settings": {
+    "relative_threshold": "1.0E-6",
+    "absolute_threshold": "1.0E-16",
+    "max_iterations": "20",
+    "precision_method": "Mortensen",
+    "parameter_relative_threshold": "0.0",
+    "parameter_absolute_threshold": "0.0",
+    "lambda": "10.0000"
+  },
+
+  "peak_filtering": {
     "shift_factor": "1",
-    "signal_strength": "3",
+    "signal_strength": "1.5",
     "min_photons": "1",
     "min_width_factor": "0.50",
     "max_width_factor": "2",
-    "precision": "120",
-    "camera_bias": "400",
-    "gain": "40.0000",
-    "read_noise": "7.1000",
-    "psf_parameter_1": "1.700",
-    "relative_threshold": "1.0E-6",
-    "absolute_threshold": "1.0E-16",
-    "parameter_relative_threshold": "0.0",
-    "parameter_absolute_threshold": "0.0",
-    "max_iterations": "20",
-    "lambda": "10.0000",
-    "precision_method": "Mortensen",
+    "precision": "120"
+  },
+
+  "other_less_relevant_settings": {
+    "neighbour_height": "0.30",
+    "residuals_threshold": "1",
+    "duplicate_distance": "0.50",
     "image_scale": "1",
     "image_size":"1024",
-    "image_pixel_size":"5"  
+    "image_pixel_size":"5" 
   }
 }
+

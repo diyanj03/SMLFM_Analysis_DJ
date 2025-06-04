@@ -9,7 +9,8 @@ import logging
 import sys
 import time
 import json
-
+import textwrap
+import time
 
 def check_tif_compatibility(file_path):
     """
@@ -302,7 +303,8 @@ def _image_info(image):
         logging.warning(f"Error gathering image information: {e}")
 
 def _run_peak_fit(
-                  ij, java_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
+                  ij, java_timeseries, datasetName, root_directory,
+                  run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                   spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                   pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                   min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -321,11 +323,15 @@ def _run_peak_fit(
         java_output_dir = locs2d_xls_directory.replace('\\', '/') + '/'
         java_csv_out = locs2d_csv_directory.replace('\\', '/') + '/'
         
-        macro_code = f"""
+        macro_code = ""
+        if run_background_subtraction:
+            macro_code += f'run("Subtract Background...", "rolling={rb_radius} disable stack")'
+        
+        macro_code += textwrap.dedent(f"""                    
         run("Z Project...", "projection=[Average Intensity]");
         imageCalculator("Subtract create stack", "{datasetName}","AVG_{datasetName}");
         run("Add...", "value={offset_value} stack");
-        run("Gaussian Blur...", "sigma=0.4 stack");
+        run("Gaussian Blur...", "sigma={sigma} stack");
         selectWindow("{datasetName}")
         close();
         selectWindow("AVG_{datasetName}")
@@ -361,7 +367,7 @@ def _run_peak_fit(
             saveAs("Text", "{java_csv_out}{datasetName}_locs2D.csv");
 
             run("Close All");
-            """
+            """)
         
 
         pf_time = f'{((time.time() - tic))/60:.3f} mins'
@@ -408,7 +414,14 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                 with open(config_path, 'r') as f:
                     config_data = json.load(f)
                 logging.info(f"Loaded 2D fitting configurations from: {config_path}. Modify if needed.\n") # Simple log message
-                pf_params_config = config_data.get('peak_fit_params', {})
+                pre_processing = config_data.get('pre-processing', {})
+                camera_settings = config_data.get('camera_settings', {})
+                maxima_identification = config_data.get('maxima_identification', {})
+                gaussian_fitting = config_data.get('gaussian_fitting', {})
+                fit_solver_settings = config_data.get('fit_solver_settings', {})
+                peak_filtering = config_data.get('peak_filtering', {})
+                other_settings = config_data.get('other_less_relevant_settings', {})
+
             else:
                 logging.info(f"Configuration file not found at {config_path}.Falling back to default.")
                 config_path = None
@@ -418,7 +431,13 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                 with open(config_path, 'r') as f:
                     config_data = json.load(f)
                 logging.info(f"Loaded 2D fitting configurations from: {config_path}.\n")
-                pf_params_config = config_data.get('peak_fit_params', {})
+                pre_processing = config_data.get('pre-processing', {})
+                camera_settings = config_data.get('camera_settings', {})
+                maxima_identification = config_data.get('maxima_identification', {})
+                gaussian_fitting = config_data.get('gaussian_fitting', {})
+                fit_solver_settings = config_data.get('fit_solver_settings', {})
+                peak_filtering = config_data.get('peak_filtering', {})
+                other_settings = config_data.get('other_less_relevant_settings', {})
 
     except Exception as e:
         logging.error(f"Error loading configuration: {e}.")
@@ -431,45 +450,53 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
     ram = config_data.get('ram')
 
     # Override peak fit parameters
-    offset_value = config_data.get('offset_value')
+    run_background_subtraction = pre_processing.get('run_background_subtraction')
+    rb_radius = pre_processing.get('rb_radius')
+    sigma = pre_processing.get('sigma')
+    offset_value = pre_processing.get('offset_value')
 
-    calibration = pf_params_config.get('calibration')
-    exposure_time = pf_params_config.get('exposure_time')
-    psf_model = pf_params_config.get('psf_model')
-    spot_filter_type = pf_params_config.get('spot_filter_type')
-    spot_filter = pf_params_config.get('spot_filter')
-    smoothing = pf_params_config.get('smoothing')
-    search_width = pf_params_config.get('search_width')
-    border_width = pf_params_config.get('border_width')
-    fitting_width = pf_params_config.get('fitting_width')
-    fit_solver = pf_params_config.get('fit_solver')
-    fail_limit = pf_params_config.get('fail_limit')
-    pass_rate = pf_params_config.get('pass_rate')
-    neighbour_height = pf_params_config.get('neighbour_height')
-    residuals_threshold = pf_params_config.get('residuals_threshold')
-    duplicate_distance = pf_params_config.get('duplicate_distance')
-    shift_factor = pf_params_config.get('shift_factor')
-    signal_strength = pf_params_config.get('signal_strength')
-    min_photons = pf_params_config.get('min_photons')
-    min_width_factor = pf_params_config.get('min_width_factor')
-    max_width_factor = pf_params_config.get('max_width_factor')
-    precision = pf_params_config.get('precision')
-    camera_bias = pf_params_config.get('camera_bias')
-    gain = pf_params_config.get('gain')
-    read_noise = pf_params_config.get('read_noise')
-    psf_parameter_1 = pf_params_config.get('psf_parameter_1')
-    precision_method = pf_params_config.get('precision_method')
-    spot_filter2 = pf_params_config.get('spot_filter2')
-    smoothing2 = pf_params_config.get('smoothing2')
-    relative_threshold = pf_params_config.get('relative_threshold')
-    absolute_threshold = pf_params_config.get('absolute_threshold')
-    parameter_relative_threshold = pf_params_config.get('parameter_relative_threshold')
-    parameter_absolute_threshold = pf_params_config.get('parameter_absolute_threshold')
-    max_iterations = pf_params_config.get('max_iterations')
-    lambdaa = pf_params_config.get('lambda')
-    image_scale = pf_params_config.get('image_scale')
-    image_size = pf_params_config.get('image_size')
-    image_pixel_size = pf_params_config.get('image_pixel_size')
+    calibration = camera_settings.get('calibration')
+    exposure_time = camera_settings.get('exposure_time')
+    camera_bias = camera_settings.get('camera_bias')
+    gain = camera_settings.get('gain')
+    read_noise = camera_settings.get('read_noise')
+
+    spot_filter_type = maxima_identification.get('spot_filter_type')
+    spot_filter = maxima_identification.get('spot_filter')
+    smoothing = maxima_identification.get('smoothing')
+    spot_filter2 = maxima_identification.get('spot_filter2')
+    smoothing2 = maxima_identification.get('smoothing2')
+    search_width = maxima_identification.get('search_width')
+    border_width = maxima_identification.get('border_width')
+    fitting_width = maxima_identification.get('fitting_width')
+
+    psf_model = gaussian_fitting.get('psf_model')
+    psf_parameter_1 = gaussian_fitting.get('psf_parameter_1')
+    fit_solver = gaussian_fitting.get('fit_solver')
+    fail_limit = gaussian_fitting.get('fail_limit')
+    pass_rate = gaussian_fitting.get('pass_rate')
+
+    relative_threshold = fit_solver_settings.get('relative_threshold')
+    absolute_threshold = fit_solver_settings.get('absolute_threshold')
+    parameter_relative_threshold = fit_solver_settings.get('parameter_relative_threshold')
+    parameter_absolute_threshold = fit_solver_settings.get('parameter_absolute_threshold')
+    max_iterations = fit_solver_settings.get('max_iterations')
+    lambdaa = fit_solver_settings.get('lambda')
+    precision_method = fit_solver_settings.get('precision_method')
+
+    shift_factor = peak_filtering.get('shift_factor')
+    signal_strength = peak_filtering.get('signal_strength')
+    min_photons = peak_filtering.get('min_photons')
+    min_width_factor = peak_filtering.get('min_width_factor')
+    max_width_factor = peak_filtering.get('max_width_factor')
+    precision = peak_filtering.get('precision')
+
+    neighbour_height = other_settings.get('neighbour_height')
+    residuals_threshold = other_settings.get('residuals_threshold')
+    duplicate_distance = other_settings.get('duplicate_distance')
+    image_scale = other_settings.get('image_scale')
+    image_size = other_settings.get('image_size')
+    image_pixel_size = other_settings.get('image_pixel_size')
 
     if runLoop == True:
         try:
@@ -506,7 +533,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
                     _image_info(jv_timeseries)
 
-                    csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
+                    csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                                                                                 spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                                 pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                                 min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -551,14 +578,14 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
             _image_info(jv_timeseries)
 
-            csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, offset_value, calibration, exposure_time, psf_model, spot_filter_type,
+            csv_file_path, macro_code = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                                                                         spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                         pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                         min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
                                                                         psf_parameter_1, precision_method, relative_threshold, absolute_threshold,
                                                                         parameter_relative_threshold, parameter_absolute_threshold, max_iterations, lambdaa,
-                                                                        image_scale, image_size, image_pixel_size)[0]
-            return csv_file_path
+                                                                        image_scale, image_size, image_pixel_size)
+            return csv_file_path, macro_code
 
         except Exception as e:
             logging.error(f"An error occurred in peak fitting pipeline: {e}")
