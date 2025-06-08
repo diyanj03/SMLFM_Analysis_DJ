@@ -4,24 +4,36 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 import os
 import numpy as np
+from matplotlib import cm
 
 
 
-
+def numFrames(input_dir):
+    dict_numFrames = {}
+    if not os.path.exists(input_dir):
+        print(f"[FAIL] 2D locs dir not found: {input_dir}")
+        return None
+    for file in os.listdir(input_dir):
+        if file.endswith('.csv'):
+            df = pd.read_csv(os.path.join(input_dir, file), skiprows=8)
+            numFrames = df['#Frame'].max()
+            dataset_name = file.split('_locs2D.csv')[0]
+            dict_numFrames[dataset_name] = numFrames
+    return dict_numFrames
 
 def num2D_locs(input_dir):
     df_2D_locs = {}
     if not os.path.exists(input_dir):
         print(f"[FAIL] 2D locs dir not found: {input_dir}")
         return df_2D_locs
-    print(f"[OK] Found 2D locs dir: {input_dir}")
+
     for file in os.listdir(input_dir):
         if file.endswith('.csv'):
             df = pd.read_csv(os.path.join(input_dir, file), skiprows=8)
             num2dlocs = len(df)
             dataset_name = file.split('_locs2D.csv')[0]
             df_2D_locs[dataset_name] = num2dlocs
-    print("[DONE] 2D locs loaded")
+
     return df_2D_locs
 
 
@@ -30,14 +42,14 @@ def num3D_raw_locs(input_dir):
     if not os.path.exists(input_dir):
         print(f"[FAIL] Raw 3D locs dir not found: {input_dir}")
         return df_3d_locs
-    print(f"[OK] Found raw 3D locs dir: {input_dir}")
+
     for file in os.listdir(input_dir):
         if file.endswith('.csv'):
             df = pd.read_csv(os.path.join(input_dir, file))
             num3dlocs = len(df)
             dataset_name = file.split('_locs3D_formatted.csv')[0]
             df_3d_locs[dataset_name] = num3dlocs
-    print("[DONE] Raw 3D locs loaded")
+
     return df_3d_locs
 
 
@@ -46,14 +58,14 @@ def num3D_cropped_locs(input_dir):
     if not os.path.exists(input_dir):
         print(f"[FAIL] Cropped 3D locs dir not found: {input_dir}")
         return df_3d_locs
-    print(f"[OK] Found cropped 3D locs dir: {input_dir}")
+
     for file in os.listdir(input_dir):
         if file.endswith('.csv'):
             df = pd.read_csv(os.path.join(input_dir, file))
             num3dlocs = len(df)
             dataset_name = file.split('_locs3D_cropped.csv')[0]
             df_3d_locs[dataset_name] = num3dlocs
-    print("[DONE] Cropped 3D locs loaded")
+
     return df_3d_locs
 
 
@@ -62,14 +74,14 @@ def numTracks(input_dir):
     if not os.path.exists(input_dir):
         print(f"[FAIL] Tracks dir not found: {input_dir}")
         return df_tracks
-    print(f"[OK] Found tracks dir: {input_dir}")
+
     for file in os.listdir(input_dir):
         if file.endswith('positionsFramesIntensity.csv'):
             df = pd.read_csv(os.path.join(input_dir, file), low_memory=False)
             numtracks = len(df)
             dataset_name = file.split('_locs3D_cropped_positionsFramesIntensity.csv')[0]
             df_tracks[dataset_name] = numtracks
-    print("[DONE] Tracks loaded")
+
     return df_tracks
 
 
@@ -78,7 +90,7 @@ def perfConf(matlab_results_dir):
     if not os.path.exists(perfovstats_filepath):
         print(f"[FAIL] File not found: {perfovstats_filepath}")
         raise FileNotFoundError(f"File not found: {perfovstats_filepath}")
-    print(f"[OK] Found PerFOVstats file: {perfovstats_filepath}")
+
     
     df = pd.read_csv(perfovstats_filepath)
     confPerc_list = df['confPerc'].fillna(0).where(df['confPerc'] >= 0, 0)
@@ -86,7 +98,7 @@ def perfConf(matlab_results_dir):
     confPerc_list = confPerc_list[confPerc_list.notna() & (confPerc_list >= 0)].tolist()
     
     dict_confPerc = dict(zip(sample_list_editted, confPerc_list))
-    print("[DONE] Confidence values loaded")
+
     return dict_confPerc
 
 
@@ -102,58 +114,84 @@ def compile_stats(root_directory, matlab_results_dir, sample_name):
         str: Path to the generated summary CSV file.
     """
 
-    locs2D_dir = os.path.join(root_directory, data, '2D_locs_csv')
-    fm_3Dlocs_dir = os.path.join(root_directory, data, 'formatted_3Dlocs')
-    cropped_3Dlocs_dir = os.path.join(root_directory, data, 'cropped_3Dlocs')
-    tracks_dir = os.path.join(root_directory, data, 'tracks')
+    locs2D_dir = os.path.join(root_directory, 'data', '2D_locs_csv')
+    fm_3Dlocs_dir = os.path.join(root_directory, 'data', 'formatted_3Dlocs')
+    cropped_3Dlocs_dir = os.path.join(root_directory, 'data', 'cropped_3Dlocs')
+    tracks_dir = os.path.join(root_directory, 'data', 'tracks')
     
 
     df = pd.DataFrame({
+        'numFrames': numFrames(locs2D_dir),
         'num_2Dlocs': num2D_locs(locs2D_dir),
         'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
         'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
         'numTracks': numTracks(tracks_dir),
-        'confPerc': perfConf(results_dir)
+        'confPerc': perfConf(matlab_results_dir)
     }).T
 
     df.index.name = 'Property'
     df = df.T
     df.index.name = 'Sample'
 
+    # calculate per-frame values and add them as new columns
+    df['num_2Dlocs_perframe'] = df['num_2Dlocs'] / df['numFrames']
+    df['num_raw3Dlocs_perframe'] = df['num_raw3Dlocs'] / df['numFrames']
+    df['num_cropped3Dlocs_perframe'] = df['num_cropped3Dlocs'] / df['numFrames']
+    df['numTracks_perframe'] = df['numTracks'] / df['numFrames']
+
     destination_dir = os.path.join(root_directory, 'analysis_summary')
     os.makedirs(destination_dir, exist_ok=True)
     destination_path = os.path.join(destination_dir, f'{sample_name}_stats.csv')
     df.to_csv(destination_path)
 
-    # computing_summary_stats:
-    mean_2Dlocs = np.mean([v for v in df['num_2Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_2Dlocs']) else 0
-    std_2Dlocs = np.std([v for v in df['num_2Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_2Dlocs']) else 0
+    # Per-frame and filtered stats
+    valid_2D = df.dropna(subset=['numFrames', 'num_2Dlocs'])
+    mean_2Dlocs = valid_2D['num_2Dlocs'].mean()
+    std_2Dlocs = valid_2D['num_2Dlocs'].std()
+    mean_2Dlocs_pf = (valid_2D['num_2Dlocs'] / valid_2D['numFrames']).mean()
+    std_2Dlocs_pf = (valid_2D['num_2Dlocs'] / valid_2D['numFrames']).std()
 
-    mean_raw_3Dlocs = np.mean([v for v in df['num_raw3Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_raw3Dlocs']) else 0
-    std_raw_3Dlocs = np.std([v for v in df['num_raw3Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_raw3Dlocs']) else 0
+    valid_raw3D = df.dropna(subset=['numFrames', 'num_raw3Dlocs'])
+    mean_raw3D = valid_raw3D['num_raw3Dlocs'].mean()
+    std_raw3D = valid_raw3D['num_raw3Dlocs'].std()
+    mean_raw3D_pf = (valid_raw3D['num_raw3Dlocs'] / valid_raw3D['numFrames']).mean()
+    std_raw3D_pf = (valid_raw3D['num_raw3Dlocs'] / valid_raw3D['numFrames']).std()
 
-    mean_cropped_3Dlocs = np.mean([v for v in df['num_cropped3Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_cropped3Dlocs']) else 0
-    std_cropped_3Dlocs = np.std([v for v in df['num_cropped3Dlocs'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['num_cropped3Dlocs']) else 0
+    valid_crop3D = df.dropna(subset=['numFrames', 'num_cropped3Dlocs'])
+    mean_crop3D = valid_crop3D['num_cropped3Dlocs'].mean()
+    std_crop3D = valid_crop3D['num_cropped3Dlocs'].std()
+    mean_crop3D_pf = (valid_crop3D['num_cropped3Dlocs'] / valid_crop3D['numFrames']).mean()
+    std_crop3D_pf = (valid_crop3D['num_cropped3Dlocs'] / valid_crop3D['numFrames']).std()
 
-    mean_tracks = np.mean([v for v in df['numTracks'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['numTracks']) else 0
-    std_tracks = np.std([v for v in df['numTracks'] if isinstance(v, (int, float))]) if any(isinstance(v, (int, float)) for v in df['numTracks']) else 0
+    valid_tracks = df.dropna(subset=['numFrames', 'numTracks'])
+    mean_tracks = valid_tracks['numTracks'].mean()
+    std_tracks = valid_tracks['numTracks'].std()
+    mean_tracks_pf = (valid_tracks['numTracks'] / valid_tracks['numFrames']).mean()
+    std_tracks_pf = (valid_tracks['numTracks'] / valid_tracks['numFrames']).std()
 
     summary_txt_path = os.path.join(destination_dir, f'{sample_name}_stats_summary.txt')
-    
-    with open(summary_txt_path, 'w', encoding='utf-8') as fileHandle:
-        fileHandle.write(f"=== {sample_name} - Summary Statistics ===\n\n")
-        fileHandle.write(f">> Number of 2D localisations:\n")
-        fileHandle.write(f"Mean: {mean_2Dlocs:.2f}\n")
-        fileHandle.write(f"Standard Deviation: {std_2Dlocs:.2f}\n\n")
-        fileHandle.write(f">> Number of raw 3D localisations:\n")
-        fileHandle.write(f"Mean: {mean_raw_3Dlocs:.2f}\n")
-        fileHandle.write(f"Standard Deviation: {std_raw_3Dlocs:.2f}\n\n")
-        fileHandle.write(f">> Number of cropped 3D localisations:\n")
-        fileHandle.write(f"Mean: {mean_cropped_3Dlocs:.2f}\n")
-        fileHandle.write(f"Standard Deviation: {std_cropped_3Dlocs:.2f}\n\n")
-        fileHandle.write(f">> Number of tracks:\n")
-        fileHandle.write(f"Mean: {mean_tracks:.2f}\n")
-        fileHandle.write(f"Standard Deviation: {std_tracks:.2f}\n\n")
+    with open(summary_txt_path, 'w', encoding='utf-8') as f:
+        f.write(f"=== {sample_name} - Summary Statistics ===\n\n")
+
+        f.write(f">> Number of 2D localisations:\n")
+        f.write(f"Mean: {mean_2Dlocs:.2f}\n")
+        f.write(f"Standard Deviation: {std_2Dlocs:.2f}\n")
+        f.write(f"Per frame mean: {mean_2Dlocs_pf:.2f}\nPer frame Std: {std_2Dlocs_pf:.2f}\n\n")
+
+        f.write(f">> Number of raw 3D localisations:\n")
+        f.write(f"Mean: {mean_raw3D:.2f}\n")
+        f.write(f"Standard Deviation: {std_raw3D:.2f}\n")
+        f.write(f"Per frame mean: {mean_raw3D_pf:.2f}\nPer frame Std: {std_raw3D_pf:.2f}\n\n")
+
+        f.write(f">> Number of cropped 3D localisations:\n")
+        f.write(f"Mean: {mean_crop3D:.2f}\n")
+        f.write(f"Standard Deviation: {std_crop3D:.2f}\n")
+        f.write(f"Per frame mean: {mean_crop3D_pf:.2f}\nPer frame Std: {std_crop3D_pf:.2f}\n\n")
+
+        f.write(f">> Number of tracks:\n")
+        f.write(f"Mean: {mean_tracks:.2f}\n")
+        f.write(f"Standard Deviation: {std_tracks:.2f}\n")
+        f.write(f"Per frame mean: {mean_tracks_pf:.2f}\nPer frame Std: {std_tracks_pf:.2f}\n\n")
 
     return destination_path
 
@@ -197,9 +235,9 @@ def jitter_pipelineStats(list_matlab_paths, sample_labels, destination_dir, rgb_
     - rgb_list (list of tuples): optional list of RGB color codes for each dataset in the same order as list_csv_paths.
     """
 
-    for column_heading in ['num_2Dlocs', 'num_raw3Dlocs', 'num_cropped3Dlocs', 'numTracks']:
+    for column_heading in ['num_2Dlocs_perframe', 'num_raw3Dlocs_perframe', 'num_cropped3Dlocs_perframe', 'numTracks_perframe']:
         distribution_lists = []
-        for csv_path in list_csv_paths:
+        for csv_path in list_matlab_paths:
             distribution_lists.append(pd.read_csv(csv_path)[column_heading].dropna().tolist())
 
         means = {}
