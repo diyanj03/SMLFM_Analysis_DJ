@@ -228,7 +228,7 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     if cfg.save_dir is not None and cfg.save_dir:
 
         timestamp_str = timestamp.strftime('%Y%m%d-%H%M%S')
-        subdir_name = Path(cfg.csv_file.stem.replace('locs2D',''))
+        subdir_name = Path(cfg.csv_file.stem.replace('_locs2D',''))
 
         results = smlfm.OutputFiles(cfg, subdir_name)
         print(f"Saving results to folder: '{results.folder.name}' within the 'data/3D_fitting_results' directory.")
