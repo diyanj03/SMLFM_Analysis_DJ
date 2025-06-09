@@ -533,13 +533,13 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
                     _image_info(jv_timeseries)
 
-                    csv_file_path = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
+                    _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                                                                                 spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                                 pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                                 min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
                                                                                 psf_parameter_1, precision_method, relative_threshold, absolute_threshold,
                                                                                 parameter_relative_threshold, parameter_absolute_threshold, max_iterations, lambdaa,
-                                                                                image_scale, image_size, image_pixel_size)[0]
+                                                                                image_scale, image_size, image_pixel_size)
         
         except Exception as e:
             logging.error(f"An error occurred in peak fitting pipeline: {e}")
