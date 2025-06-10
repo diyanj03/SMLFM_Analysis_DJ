@@ -32,7 +32,7 @@
 
   "gaussian_fitting": {
     "psf_model": "Circular Gaussian 2D",
-    "psf_parameter_1": "1.700",
+    "psf_parameter_1": "1.200",
     "fit_solver": "LVM LSE",
     "fail_limit": "3",
     "pass_rate": "0.50"
