@@ -226,9 +226,10 @@ def correlation_analysis(root_directory, stats_csv_path, sample_name, rgb=(0.5, 
     plt.show()
 
 
-def jitter_pipelineStats(list_matlab_paths, sample_labels, destination_dir, rgb_list=None):
+def jitter_pipelineStats(root_directory, matlab_dir_lists, sample_labels, destination_dir, rgb_list=None):
     """
     Args:
+    - root_directory: path to root_dir
     - list_matlab_paths (list of str): list of paths to matlab output dirs to be compared.
     - sample_labels (list of str): labels for each sample in the same order as list_csv_paths.
     - destination_dir (str): directory where the plot and stats summary will be saved.
@@ -237,7 +238,9 @@ def jitter_pipelineStats(list_matlab_paths, sample_labels, destination_dir, rgb_
 
     for column_heading in ['num_2Dlocs_perframe', 'num_raw3Dlocs_perframe', 'num_cropped3Dlocs_perframe', 'numTracks_perframe']:
         distribution_lists = []
-        for csv_path in list_matlab_paths:
+        for idx, folder in enumerate(matlab_dir_lists):
+            csv_path = compile_stats(root_directory, folder, sample_labels[idx])
+
             distribution_lists.append(pd.read_csv(csv_path)[column_heading].dropna().tolist())
 
         means = {}
