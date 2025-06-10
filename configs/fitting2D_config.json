@@ -5,7 +5,7 @@
 
 
   "pre-processing": {
-    "run_background_subtraction": true,
+    "run_background_subtraction": false,
     "rb_radius": "5",
     "sigma": "0.4",
     "offset_value": "100"
