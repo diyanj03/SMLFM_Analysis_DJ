@@ -1,6 +1,6 @@
-# SMLFM_Analysis_DJ
+# lfmSPTanalysis
 
-This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin..
+This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin.
 
 
 **Sections for this guide:**
@@ -19,7 +19,7 @@ This pipeline quantifies the biophysical parameters of a nuclear transcription f
 
 ### 1.1. Download Project Repository
 
-1. Go to `https://github.com/diyanj03/SMLFM_Analysis_DJ` on github.
+1. Go to `https://github.com/diyanj03/lfmSPTanalysis` on github.
 2. Click `<> Code` → `Download ZIP`.
 3. Extract the folder to your desired location. Your workspace should initially have:
     * `src/` (source code)
@@ -28,7 +28,7 @@ This pipeline quantifies the biophysical parameters of a nuclear transcription f
     * `README.md` (this file)
     * `requirements.txt` (Python dependencies list)
 
-*Note your extracted path, e.g.: `C:/Users/username/Documents/SMLFM_Analysis_DJ-main`*
+*Note your extracted path, e.g.: `C:/Users/username/Documents/lfmSPTanalysis-main`*
 
 ---
 
@@ -93,11 +93,11 @@ Install the following software. Tested versions are indicated in parentheses.
 ### 1.3. Create & Activate Python Virtual Environment
 
 
-1.  Run the following command on terminal to navigate to the `SMLFM_Analysis_DJ-main` project directory:
+1.  Run the following command on terminal to navigate to the `lfmSPTanalysis-main` project directory:
     ```
-    cd your/path/to/SMLFM_Analysis_DJ-main
+    cd your/path/to/lfmSPTanalysis-main
     ```
-    *(Replace `your/path/to/SMLFM_Analysis_DJ-main` with the actual path to the folder noted in step 1.1).*
+    *(Replace `your/path/to/lfmSPTanalysis-main` with the actual path to the folder noted in step 1.1).*
 
 2. Create virtual environment, once inside project directory:
     ```
@@ -131,9 +131,9 @@ The `main.ipynb` notebook in the `src` folder will be used for analysis. Ensure 
   - Go to the kernel or interpreter selection menu.
   - Manually select the Python interpreter from your virtual environment:
     - **Windows:**  
-      `your\path\to\SMLFM_Analysis_DJ-main\.venv\Scripts\python.exe`
+      `your\path\to\lfmSPTanalysis-main\.venv\Scripts\python.exe`
     - **macOS/Linux:**  
-      `your/path/to/SMLFM_Analysis_DJ-main/.venv/bin/python`
+      `your/path/to/lfmSPTanalysis-main/.venv/bin/python`
   - Use options like **"Change Kernel"**, **"Add Interpreter"**, or **"Enter interpreter path"** as needed.
 
 <br>
@@ -146,7 +146,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 ### 2.1. Defining root directory and importing packages (cell 1)
 - **Purpose:** to import py packages and define the project root directory.
 - **Inputs**:
-    - **`root_dir`**: absolute path of your SMLFM_Analysis_DJ-main folder as noted in step 1.1. 
+    - **`root_dir`**: absolute path of your lfmSPTanalysis-main folder as noted in step 1.1. 
 - Run this cell evertyime you restart the kernel.
 ---
 
@@ -193,7 +193,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
     - **`locs2D_path`:** path to the 2D localisation file to be analysed if runLoop = False.
         - set to `return_locs2D_path` if you ran 2D fitting with a single dataset.
-        - set to absolute path to locs2D csv file if the **cell2_locs2D_path** returned from cell 2 is lost. e.g.: `r"C:/path/to/SMLFM_Analysis_DJ-main/data/2D_locs_csv/you_file_locs2D.csv"` 
+        - set to absolute path to locs2D csv file if the **cell2_locs2D_path** returned from cell 2 is lost. e.g.: `r"C:/path/to/lfmSPTanalysis-main/data/2D_locs_csv/you_file_locs2D.csv"` 
 
     - **`cfg_name`**: name of the 3D fitting config file to be used for analysis from the `configs` folder. e.g.: `"fitting2D_config.json"`
 
@@ -235,7 +235,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 - **Inputs:**
     - **`fm_locs3D_path`:** path to the formatted 3D localisation file to be plotted.
         - set to `return_locs3D_path` to automatically plot the 3D localisation file returned from the most recent 3D fitting run.
-        - set to absolute path to locs2D csv file if the **return_locs2D_path** returned from cell 3 is lost/undefined. e.g.: `r"C:/path/to/SMLFM_Analysis_DJ-main/data/formatted_3Dlocs/your_locs3D_formatted.csv"` 
+        - set to absolute path to locs2D csv file if the **return_locs2D_path** returned from cell 3 is lost/undefined. e.g.: `r"C:/path/to/lfmSPTanalysis-main/data/formatted_3Dlocs/your_locs3D_formatted.csv"` 
 
 - **Note**: After plotting 3D locs for a given dataset, apply the cropping using Cell 6 (see section 2.6) before moving on to the next dataset.
 
@@ -311,7 +311,7 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 - **Inputs:** 
     - **`destination_dir`**: absolute path to the destination folder to save the data from the **'data/'** and **'results/'** folders.
 
-- The workspace in SMLFM_Analysis_DJ-main can now be emptied for another round of analysis with another sample type or condition.
+- The workspace in lfmSPTanalysis-main can now be emptied for another round of analysis with another sample type or condition.
 
 ---
  
