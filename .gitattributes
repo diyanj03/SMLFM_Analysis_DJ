@@ -1,2 +1,20 @@
+# Exclude Roff files
 *.roff linguist-vendored
+
+# Exclude Markdown files (often documentation)
 *.md linguist-vendored
+
+# Exclude common data and image files
+*.csv linguist-vendored
+*.txt linguist-vendored
+*.json linguist-vendored
+*.png linguist-vendored
+
+# Explicitly set language for Python scripts
+*.py linguist-language=Python
+
+# Explicitly set language for Matlab scripts
+*.m linguist-language=Matlab
+
+# Explicitly set language for Jupyter Notebooks
+*.ipynb linguist-language=Jupyter Notebook
