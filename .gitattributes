@@ -9,9 +9,13 @@
 *.txt linguist-vendored
 *.json linguist-vendored
 *.png linguist-vendored
+*.3d linguist-vendored
+*.1 linguist-vendored
+*.man linguist-vendored
 
 # Explicitly set language for Python scripts
 *.py linguist-language=Python
+*.pyw linguist-language=Python
 
 # Explicitly set language for Matlab scripts
 *.m linguist-language=Matlab
