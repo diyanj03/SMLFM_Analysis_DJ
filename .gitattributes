@@ -22,3 +22,4 @@
 
 # Explicitly set language for Jupyter Notebooks
 *.ipynb linguist-language=Jupyter Notebook
+*.ipynb linguist-generated=false
