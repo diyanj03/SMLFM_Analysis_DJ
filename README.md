@@ -1,6 +1,6 @@
 # SMLFM_Analysis_DJ
 
-This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified as DNA-bound or freely diffusing based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin.
+This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin.
 
 
 **Sections for this guide:**
@@ -46,7 +46,7 @@ Install the following software. Tested versions are indicated in parentheses.
 **JDK (21.0.6.7-hotspot):**
 - Download from [Adoptium](https://adoptium.net/temurin/releases/)
 - Extract to a suitable location, e.g.: `C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot`.
-- Set Environment Variables:
+- Set Environment Variables (Windows):
     1. Windows search → **"Edit the system environment variables"** → **Environment Variables...**
     2. Under *System variables* → **New...**  
         - **Variable name:** `JAVA_HOME`  
@@ -61,9 +61,7 @@ Install the following software. Tested versions are indicated in parentheses.
 
 - Download the "Binary zip archive" from [maven.apache.org](https://maven.apache.org/download.cgi)
 - Extract to a suitable location, e.g.: `C:\Program Files\apache-maven-3.9.9`
-- Set Environment Variables:
-    * Under *System variables*, create `M2_HOME` and set value to `C:\your\path\to\apache-maven-3.9.9` 
-    * Add `%M2_HOME%\bin` to your system `Path`.
+- Add bin directory path to system `Path`.
 - Verify installation on terminal: `mvn -version`.
 <br><br>
 
@@ -284,46 +282,30 @@ Once all software has been installed, and the kernel in main.ipynb has been sele
 
 ---
 
-## 2.9. Plotting per FOV distributions for a sample (Cells 9)
-- **Purpose:** To produce jitter plots showing per FOV distribution of specific TF properties (% bound to DNA, diffusion constant when DNA-bound, diffusion constant when unbound) of a given sample.  
+## 2.9. Plotting per FOV distributions and generating analysis summary for a sample (Cell 9)
+- **Purpose:** To produce jitter plots showing per FOV distribution of specific TF properties (% bound to DNA, diffusion constant when DNA-bound, diffusion constant when unbound) of a given sample. Also generates a summary csv file of analysis properties like number of 2Dlocs, num3Dlocs, numTracks per FOV.  
 
 - **Inputs:** 
-    - **`results_dir`**: absolute path to the specific results folder of a given sample. 
+    - **`results_dir`**: absolute path to the matlab output folder of a given sample. 
     - **`sample_name`**: name of sample. e.g. 'SOX2_mESCs'
-    - **`biophysical_parameter`**: the paramter of interest. choose from ['confPerc', 'alpha', 'driftMagnitude', 'diffusionConst', 'Lc'] 
-    - **`segmentation_state`**: segmnetation_state of interest. choose from ['Confined', 'Unconfined', 'AllTrajectories'] 
-    - **`destination_dir`** absolute path to destination folder to save jitter plots.
 
-- **Output:** Saves .pdf plots to a folder named after 'sample_names' within the provided destination directory. Also saves .txt files containing output of statistics (mean, std_dev, etc) and normality test results. 
+- **Output:** Saves output to a folder named after 'sample_name' within the '../results/' folder. output includes a csv summary file, pdf plots and txt files noting the statistics.
 
 ---
 
-## 2.10. Plotting per FOV distributions results for multiple samples (Cell 10)
+## 2.10. Plotting per FOV distributions for multiple samples for comparison (Cell 10)
 - **Purpose:** Similar to Cell 9 but plots distributions of different samples in the same plot and performs statistical analysis to test for significance.
 
 - **Args:** 
-    - **`results_dirs`**: a list of absolute paths to the results directories (each corresponding to a sample type) to be compared.
-    - **`sample_names`**: a list of the names of the sample types in the same order as the list of result directories.  
-    - **`biophysical_parameter`**: the paramter of interest. choose from ['confPerc', 'alpha', 'driftMagnitude', 'diffusionConst', 'Lc'] 
-    - **`segmentation_state`**: segmnetation_state of interest. choose from ['Confined', 'Unconfined', 'AllTrajectories'] 
-    - **`destination_dir`** absolute path to destination folder to save jitter plots and stat results.
+    - **`results_dirs`**: a list of absolute paths to the matlab output directories (each corresponding to a sample type) to be compared.
+    - **`summary_csvs`**: a list of absolute paths to the summary csv file generated from cell 9 (each corresponding to a sample type) to be compared.
+    - **`sample_names`**: a list of the names of the sample types in the same order as the list of result directories/csv paths.
 
 - **Output:** Saves .pdf plots to a folder named after 'sample_names' within the provided destination directory. Also saves .txt files containing output of statistics (mean, std_dev, etc) and significance test results (type of test, p_value). 
-
----
-
-## 2.11. Plotting association values (Cell 11)
-- **Purpose:** Plots association values for multiple samples.
-
-- **Inputs:** 
-    - **`results_dirs`**: a list of absolute paths to the results directories (each corresponding to a sample type) to be compared.
-    - **`sample_names`**: a list of the names of the sample types in the same order as the list of result directories.  
-    - **`destination_dir`** absolute path to destination folder to save jitter plots and stat results.
-
-- **Output:** Saves .pdf plot to a 'Association' subfolder within a subfolder named after 'sample_names' within the provided destination directory. 
+ 
 
 
-## 2.12. Saving data and results (Cell 12)
+## 2.11. Saving data and results (Cell 11)
 - **Purpose:** To copy the whole `data/` and `results/` directories to a destination folder.
 
 - **Inputs:** 
