@@ -145,7 +145,7 @@ def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, 
 
         normal_str = "Normal" if normality_result['normal'] else "Not normal"
         fileHandle.write(f"statistic = {normality_result['statistic']:.4f}, p = {normality_result['p_value']:.4f} → {normal_str}\n")
-
+    
 
 
 # Jitter plots for per FOV biophysical parameters and confPerc values. multiple samples (+ significance test). Separate axis.
@@ -345,9 +345,9 @@ def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_
     os.makedirs(destination_dir, exist_ok=True)
 
     if parameter == 'confPerc':
-        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter)
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels) + '_perFOV_results', parameter)
     else:
-        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter, segmentation_state)
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels) + '_perFOV_results', parameter, segmentation_state)
 
     os.makedirs(destination_subdir, exist_ok=True)
 
@@ -384,12 +384,12 @@ def perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_
 
 
 # Association value +- 95% confidence interval of multiple samples.
-def plotAssociationValues(results_dir_list, sample_names, destination_dir):
+def plotAssociationValues(results_dir_list, sample_names, root_directory):
     """
     Args: 
     - results_dir_list: list of names of results directories to be analysed
     - sample_names: custom names for each dataset in respective order or results_dir_list
-    - destination directory to save plot.
+    - root directory path.
     """
 
     all_data = []
@@ -428,7 +428,7 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
     # Concatenate all data frames from different directories
     results_df = pd.concat(all_data, ignore_index=True)
 
-    def plotting_association_values(ass_data, destination_dir):
+    def plotting_association_values(ass_data, root_directory):
         plt.figure(figsize=(5, 4))  
 
         tau_columns = [col for col in ass_data.columns if col.startswith('tau_') and not col.endswith('_lower') and not col.endswith('_upper')]
@@ -454,9 +454,10 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
         plt.margins(x=0.3)
         plt.tight_layout()
 
+        destination_dir = os.path.join(root_directory, 'results')
         os.makedirs(destination_dir, exist_ok=True)
 
-        destination_subdir = os.path.join(destination_dir, '_'.join(sample_names), 'Association')
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_names) + '_perFOV_results', 'Association')
 
         os.makedirs(destination_subdir, exist_ok=True)
         destination_path = os.path.join(destination_subdir, '_'.join(sample_names) + '_associationValues.pdf')
@@ -480,25 +481,29 @@ def plotAssociationValues(results_dir_list, sample_names, destination_dir):
 
 
     # Generate the plot
-    plotting_association_values(results_df, destination_dir)
+    plotting_association_values(results_df, root_directory)
 
 
 
 # Batch processing jitter for all biophysical params and all segmentation states.
-def batchProcess_jitterSingle(results_dir, sample_label, destination_dir):  
+def batchProcess_jitterSingle(results_dir, sample_label, root_directory):  
     """
     Args:
     - results_dir (str): path of results directory
     - sample_label (str): sample label to be used on plots
-    - destination_dir (str): destination path
+    - root_dir (str): root path    
     """
+    print(f'Generating perFOV distributions of biophysical parameters, classified and unclassified...')
+    destination_dir = os.path.join(root_directory, 'results')
     for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
         if parameter == 'confPerc':
             perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir)
         else:
             for segmentation_state in ['Unconfined', 'Confined', 'AllTrajectories']:
                 perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, segmentation_state=segmentation_state)
-
+    
+    print(f'Successfully saved "{sample_label}" perFOV plots & stats to the "../results/{sample_label}_perFOV_results" folder.')
+    
 def batchProcess_jitterMulti(results_dir_list, sample_labels, destination_dir, rgb_list=None):
     for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
         if parameter == 'confPerc':
@@ -506,7 +511,7 @@ def batchProcess_jitterMulti(results_dir_list, sample_labels, destination_dir, r
         else:
             for segmentation_state in ['Unconfined', 'Confined', 'AllTrajectories']:
                 perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, segmentation_state=segmentation_state,  rgb_list=rgb_list)
-
+    print(f'Successfully saved per FOV plots & stats to the "../results/{'_'.join(sample_labels)}_perFOV_results" folder.')
 
 
 
@@ -737,9 +742,9 @@ def plot_jitter_boxplot(distribution_lists, sample_labels, xs, y_var, annotation
     os.makedirs(destination_dir, exist_ok=True)
 
     if parameter == 'confPerc':
-        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter)
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels) + '_perFOV_results', parameter)
     else:
-        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels), parameter, segmentation_state)
+        destination_subdir = os.path.join(destination_dir, '_'.join(sample_labels) + '_perFOV_results', parameter, segmentation_state)
 
     os.makedirs(destination_subdir, exist_ok=True)
 
@@ -789,16 +794,17 @@ def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destinati
     prepped_conf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Confined')
     prepped_unconf = prep_jitter_data(results_dir_list, sample_labels, parameter, segmentation_state='Unconfined')
 
-    all_prep_results = [prepped_all, prepped_conf, prepped_unconf]
+    conf_unconf_prep_results = [prepped_conf, prepped_unconf]
 
     # Get the maximum value across all datasets for all segmentation states
     all_max_vals = []
-    for y in all_prep_results:
+    for y in conf_unconf_prep_results:
         distribution_lists = y['distribution_lists']
         max_vals = [np.max(data) for data in distribution_lists]
         all_max_vals.append(max(max_vals))
     max_max_val = np.max(all_max_vals)
 
+    max_val_allTraj = max(np.max(data) for data in prepped_all['distribution_lists'])
 
     annotation_result_unconf = get_annotations(
         prepped_unconf['distribution_lists'],
@@ -822,28 +828,30 @@ def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destinati
         prepped_all['distribution_lists'],
         prepped_all['sample_labels'],
         prepped_all['max_vals'],
-        max_max_val,
+        max_val_allTraj,
         prepped_all['normality_results'],
         prepped_all['test_results']
     )
 
-    all_annotation_results = [annotation_result_all, annotation_result_conf, annotation_result_unconf]
+    conf_unconf_annotation_results = [annotation_result_conf, annotation_result_unconf]
 
 
     # Determine y_limit based on all results
     y_mins = []
     y_maxs = []
-    for ann_result in all_annotation_results:
+    for ann_result in conf_unconf_annotation_results:
         y_mins.append(ann_result['y_limit'][0])
         y_maxs.append(ann_result['y_limit'][1])
-    y_limit = (min(y_mins), max(y_maxs))
+    y_limit_conf_unconf = (min(y_mins), max(y_maxs))
+
+    y_limit_allTraj = (annotation_result_all['y_limit'][0], annotation_result_all['y_limit'][1])
 
 
-    all_prep_results = [prepped_all, prepped_conf, prepped_unconf]# Plotting all thr
-    all_annotation_results = [annotation_result_all, annotation_result_conf, annotation_result_unconf]
+    conf_unconf_prep_results = [prepped_conf, prepped_unconf]
+    conf_unconf_annotation_results = [annotation_result_conf, annotation_result_unconf]
 
 
-    for prepped_data, ann_data in zip(all_prep_results, all_annotation_results):
+    for prepped_data, ann_data in zip(conf_unconf_prep_results, conf_unconf_annotation_results):
         plot_jitter_boxplot(
             prepped_data['distribution_lists'],
             prepped_data['sample_labels'],
@@ -857,22 +865,45 @@ def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destinati
             prepped_data['means'],
             prepped_data['stds'],
             prepped_data['unit'],
-            y_limit,
+            y_limit_conf_unconf,
             destination_dir,
             rgb_list=rgb_list
         )
+    
+    plot_jitter_boxplot(
+        prepped_all['distribution_lists'],
+        prepped_all['sample_labels'],
+        prepped_all['xs'],
+        prepped_data['y_var'],
+        annotation_result_all['annotations'],
+        prepped_all['parameter'],
+        prepped_all['segmentation_state'],
+        prepped_all['test_results'],
+        prepped_all['normality_results'],
+        prepped_all['means'],
+        prepped_all['stds'],
+        prepped_all['unit'],
+        y_limit_allTraj,
+        destination_dir,
+        rgb_list=rgb_list
+    )
 
 
-def batchProcess_jitterMulti_sx(results_dir_list, sample_labels, destination_dir, rgb_list=None):
+def batchProcess_jitterMulti_sx(results_dir_list, sample_labels, root_directory, rgb_list=None):
     """
     Args:
     - results_dir_list (list of str): list of results directories to be compared
     - sample_labels (list of str): sample labels in same order as results_dir_list
-    - destination_dir (str): destination folder path
+    - root_directory (str): root_directory.
     - rgb_list (list of tuples): list of rgb colour codes in same order as results_dir_list (OTPIONAL)
     """
+    print(f'Generating perFOV distributions of biophysical parameters, classified and unclassified...')
+    destination_dir = os.path.join(root_directory, 'results')
+
     for parameter in ['confPerc','alpha', 'diffusionConst', 'driftMagnitude','Lc']:
         if parameter == 'confPerc':
             perFOV_jitter_multi(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=rgb_list)
         else:
             perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destination_dir, rgb_list=rgb_list)
+    
+    print(f'Successfully saved per FOV plots & stats to the "../results/{'_'.join(sample_labels)}_perFOV_results" folder.')
