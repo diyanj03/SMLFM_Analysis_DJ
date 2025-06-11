@@ -114,13 +114,13 @@ def compile_stats(matlab_results_dir, sample_name, root_directory, custom_dir=No
         str: Path to the generated summary CSV file.
     """
     if custom_dir:
-        print(f'Reading data folders within custom directory as provided to generate analysis summary stats...\n(note: ensure they all contain datasets only corresponding to "{sample_name}")')
+        print(f'Reading subfolders, "2D_locs_csv","formatted_3Dlocs","cropped_3Dlocs","tracks", within the custom directory as provided to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
         locs2D_dir = os.path.join(custom_dir,'2D_locs_csv')
         fm_3Dlocs_dir = os.path.join(custom_dir,'formatted_3Dlocs')
         cropped_3Dlocs_dir = os.path.join(custom_dir, 'cropped_3Dlocs')
         tracks_dir = os.path.join(custom_dir, 'tracks')
     else:
-        print(f'Reading data folders within the "../data" directory to generate analysis summary stats...\n(note: ensure they all contain datasets only corresponding to "{sample_name}")')
+        print(f'Reading subfolders, "2D_locs_csv","formatted_3Dlocs","cropped_3Dlocs","tracks", within the "../data" directory to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
         locs2D_dir = os.path.join(root_directory, 'data', '2D_locs_csv')
         fm_3Dlocs_dir = os.path.join(root_directory, 'data', 'formatted_3Dlocs')
         cropped_3Dlocs_dir = os.path.join(root_directory, 'data', 'cropped_3Dlocs')
