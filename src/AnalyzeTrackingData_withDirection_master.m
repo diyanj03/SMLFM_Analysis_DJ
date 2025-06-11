@@ -24,10 +24,10 @@ classdef AnalyzeTrackingData_withDirection_master<handle
         displacement = struct('confined',[],...
             'unconfined',[]);
         % Parameters
-        params = struct('dt', 0.02,...                  % aquisition time interval [sec]
-            'minNumPoints',5,...          % (frames) threshold below which trajectories are discarded
-            'minNumPointsLongTraj',5,...   % minimal number of frames to be considered as non confined long trajectory
-            'numMSDpoints',5,...           % radius (number of points) to consider in the moving window MSD. [-numPoints numPoints] around each point
+        params = struct('dt', 0.5,...                  % aquisition time interval [sec]
+            'minNumPoints',4,...          % (frames) threshold below which trajectories are discarded
+            'minNumPointsLongTraj',4,...   % minimal number of frames to be considered as non confined long trajectory
+            'numMSDpoints',4,...           % radius (number of points) to consider in the moving window MSD. [-numPoints numPoints] around each point
             'inspectTrajectories',true,... % allows to inspect visually all, confined and unconfined trajectories
             'plotAssociationDissociationHist',true,...% show the association dissociation histogram
             'plotTrajectories',true,...    % show all 3d trajectories  [true/false]
