@@ -1,6 +1,6 @@
 # SMLFM_Analysis_DJ
 
-This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin.
+This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin..
 
 
 **Sections for this guide:**
