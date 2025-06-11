@@ -35,5 +35,6 @@ configs/*
 !tests/
 !tests/**
 
-# Allow gitignore
+# Allow gitignore and gitattributes
 !.gitignore
+!.gitattributes
