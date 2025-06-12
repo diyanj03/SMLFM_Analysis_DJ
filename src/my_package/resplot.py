@@ -127,10 +127,10 @@ def perFOV_jitter_single(results_dir, parameter, sample_label, destination_dir, 
         destination_subdir = os.path.join(destination_dir, sample_label + '_perFOV_results', parameter, segmentation_state)
 
     os.makedirs(destination_subdir, exist_ok=True)
-    destination_path = os.path.join(destination_subdir, 'jitterPlot.png')
+    destination_path = os.path.join(destination_subdir, 'jitterPlot.pdf')
     
 
-    plt.savefig(destination_path, dpi = 500)
+    plt.savefig(destination_path)
     plt.show()
     
     txt_path = os.path.join(destination_subdir, 'stats.txt')
