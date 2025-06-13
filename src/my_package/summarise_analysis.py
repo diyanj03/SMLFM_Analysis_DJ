@@ -102,14 +102,14 @@ def perfConf(matlab_results_dir):
     return dict_confPerc
 
 
-def compile_stats(matlab_results_dir, sample_name, root_directory, custom_dir=None):
+def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_data_dir=None):
     """ 
     Compiles statistics (number of 2D locs, 3D locs, tracks, confPerc) per dataset into a summary CSV file.
     Args:
-        matlab_results_dir (str): Directory containing MATLAB results.
         sample_name (str): Name of the sample for labeling the summary.
         root_directory (str): Path to root_directory to read the data folders and saving the summary stats.
-        custom_dir (str, optional): replaces 'root_dir/data' with custom directory path containing the '2D_locs_csv', 'formatted_3Dlocs', 'cropped_3Dlocs', 'tracks' folders for the given sample.  
+        matlab_results_dir (str, optional): Directory containing MATLAB results.
+        custom_data_dir (str, optional): replaces 'root_dir/data' with custom directory path containing the '2D_locs_csv', 'formatted_3Dlocs', 'cropped_3Dlocs', 'tracks' folders for the given sample.  
     Returns:
         str: Path to the generated summary CSV file.
     """
@@ -126,15 +126,23 @@ def compile_stats(matlab_results_dir, sample_name, root_directory, custom_dir=No
         cropped_3Dlocs_dir = os.path.join(root_directory, 'data', 'cropped_3Dlocs')
         tracks_dir = os.path.join(root_directory, 'data', 'tracks')
 
-    
-    df = pd.DataFrame({
-        'numFrames': numFrames(locs2D_dir),
-        'num_2Dlocs': num2D_locs(locs2D_dir),
-        'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
-        'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
-        'numTracks': numTracks(tracks_dir),
-        'confPerc': perfConf(matlab_results_dir)
-    }).T
+    if matlab_results_dir:
+        df = pd.DataFrame({
+            'numFrames': numFrames(locs2D_dir),
+            'num_2Dlocs': num2D_locs(locs2D_dir),
+            'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
+            'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
+            'numTracks': numTracks(tracks_dir),
+            'confPerc': perfConf(matlab_results_dir)
+        }).T
+    else: 
+        df = pd.DataFrame({
+            'numFrames': numFrames(locs2D_dir),
+            'num_2Dlocs': num2D_locs(locs2D_dir),
+            'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
+            'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
+            'numTracks': numTracks(tracks_dir),
+        }).T
 
     df.index.name = 'Property'
     df = df.T
