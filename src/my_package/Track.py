@@ -103,19 +103,20 @@ class Track:
     
   @property
   def averageSignalToNoise(self):
-    
     if self.numberPositions >= 3:
-      noises = numpy.array(self.noises[1:-1])
-      signals = numpy.array(self.signals[1:-1])
+        noises = numpy.array(self.noises[1:-1])
+        signals = numpy.array(self.signals[1:-1])
     else:
-      noises = numpy.array(self.noises)
-      signals = numpy.array(self.signals)
+        noises = numpy.array(self.noises)
+        signals = numpy.array(self.signals)
 
     if len(signals) > 0:
-      ratio = signals / noises
-      return numpy.average(ratio)
+        # Avoid division by zero by replacing zeros with a tiny value
+        safe_noises = numpy.where(noises == 0, 1e-10, noises)
+        ratio = signals / safe_noises
+        return numpy.average(ratio)
     else:
-      return 0.0
+        return 0.0
       
   @property
   def numberPositions(self):
@@ -462,7 +463,7 @@ def saveNumTracksInBin(tracks, filePrefix, binSize, minValue, maxValue, plotDpi)
 def saveTracks(tracks, filePrefix):
 
   fileName = _determineOutputFileName(filePrefix, 'trackPositions.csv')
-  print('Saving tracks to %s' % fileName)
+  print('Saving tracks to %s\n' % fileName)
   with open(fileName, 'w') as fp:
     fp.write('#track,frame,x,y,z\n')
     for n, track in enumerate(tracks):
