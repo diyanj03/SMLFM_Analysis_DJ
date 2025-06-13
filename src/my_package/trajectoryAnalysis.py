@@ -136,6 +136,14 @@ def main():
     for relfileName in relfileNames:
       filePrefix = os.path.join(directory, relfileName[:-len(suffix)])
       fileName = os.path.join(directory, relfileName)
+
+      suffix_to_strip = '_locs3D_cropped'
+      base = os.path.basename(filePrefix)
+      if base.endswith(suffix_to_strip):
+        filePrefix = os.path.join(os.path.dirname(filePrefix), base[:-len(suffix_to_strip)])
+
+
+
       if args.fileContainsTrack:
         print('Reading track from %s' % fileName)
         track = Track.readTrack(fileName, args.numDimensions)
