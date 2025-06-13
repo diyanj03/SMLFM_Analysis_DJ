@@ -102,7 +102,7 @@ def perfConf(matlab_results_dir):
     return dict_confPerc
 
 
-def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_data_dir=None):
+def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_dir=None):
     """ 
     Compiles statistics (number of 2D locs, 3D locs, tracks, confPerc) per dataset into a summary CSV file.
     Args:
@@ -154,8 +154,10 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
     df['num_cropped3Dlocs_perframe'] = df['num_cropped3Dlocs'] / df['numFrames']
     df['numTracks_perframe'] = df['numTracks'] / df['numFrames']
 
-
-    destination_dir = os.path.join(root_directory, 'results', sample_name + '_perFOV_results', 'analysisSummary')
+    if matlab_results_dir:
+        destination_dir = os.path.join(root_directory, 'results', sample_name + '_perFOV_results', 'analysisSummary')
+    else:
+        destination_dir = os.path.join(root_directory, 'results', sample_name + '_analysisSummary')
     os.makedirs(destination_dir, exist_ok=True)
     csv_destination_path = os.path.join(destination_dir, f'{sample_name}_stats.csv')
     df.to_csv(csv_destination_path)
@@ -208,9 +210,10 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
         f.write(f"Mean: {mean_tracks:.2f}\n")
         f.write(f"Standard Deviation: {std_tracks:.2f}\n")
         f.write(f"Per frame mean: {mean_tracks_pf:.2f}\nPer frame Std: {std_tracks_pf:.2f}\n\n")
-    
-    print(f'Successfully saved "{sample_name}" summary stats to the "../results/{sample_name}_perFOV_results" folder.\n')
-
+    if matlab_results_dir:
+        print(f'Successfully saved "{sample_name}" summary stats to the "../results/{sample_name}_perFOV_results" folder.\n')
+    else:
+        print(f'Successfully saved "{sample_name}" summary stats to the "../results/{sample_name}_analysisSummary" folder.\n')
 
 
 def correlation_analysis(stats_csv_path, sample_name, root_directory, rgb=(0.5, 0.5, 0.5)):
