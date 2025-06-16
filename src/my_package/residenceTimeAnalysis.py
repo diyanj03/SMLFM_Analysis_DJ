@@ -1,6 +1,7 @@
 from scipy.stats import linregress
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from scipy.optimize import curve_fit
 import os
 import pandas as pd
@@ -88,14 +89,15 @@ def compute_keffs(counts_dict):
         keff_dict[tau_tl] = (k_eff_fit, k_eff_err)
 
         scatter = ax.scatter(actual_x, counts, label=f'{tau_tl}s data')
+        label = rf"{tau_tl}s fit: $k_{{\mathrm{{eff}}}} = {k_eff_fit:.3f} \pm {k_eff_err:.3f} \ \mathrm{{s^{{-1}}}}$"
         line, = ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-                         label = f'{tau_tl}s fit - $k_{{eff}}$ = {k_eff_fit:.2f} ± {k_eff_err:.2g}',
+                         label = label,
                          color = scatter.get_facecolors()[0])
         
     
     ax.set_xscale('log')
     ax.grid(which='both', linestyle='--', linewidth=0.5)
-    ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
+    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
     ax.set_ylabel("raw occurence")
     ax.legend()
     plt.show()
@@ -126,13 +128,16 @@ def compute_keffs(counts_dict):
         A_err, k_eff_err = perr
 
         scatter = ax2.scatter(actual_x, perc_surviving, label=f'{tau_tl}s data')
+        
+        label = rf"{tau_tl}s fit: $k_{{\mathrm{{eff}}}} = {k_eff_fit:.3f} \pm {k_eff_err:.3f} \ \mathrm{{s^{{-1}}}}$"
+
         ax2.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-                label=f'{tau_tl}s fit - $k_{{eff}}$ = {k_eff_fit:.2f} ± {k_eff_err:.2g}',
+                label = label,
                 color=scatter.get_facecolors()[0])
 
     ax2.set_xscale('log')
     ax2.grid(which='both', linestyle='--', linewidth=0.5)
-    ax2.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
+    ax2.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
     ax2.set_ylabel("fraction surviving")
     ax2.legend()
     plt.show()
@@ -172,15 +177,24 @@ def compute_koffs(keff_dict, tau_int):
     fit = k_off * t + c_b
 
     fig, ax = plt.subplots()
-    ax.scatter(tau_tl_list, keff_tl_data)
-    ax.plot(t, fit)
-    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
+
+    k_off_annot = rf"$k_{{\mathrm{{off}}}} = {k_off:.3f} \pm {koff_std_err:.3f} \ \mathrm{{s^{{-1}}}}$"
+
+    # plotting data first
+    data_handle = ax.errorbar(tau_tl_list, keff_tl_data, yerr=keff_tl_errors,
+                            fmt='o', color='black', capsize=3, elinewidth=1, label='Data ± SE')
+
+    fit_handle, = ax.plot(t, fit, color='black', label=f'Linear fit: {k_off_annot}')
+
+    ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
     ax.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
 
     current_ylim = ax.get_ylim()
     ax.set_ylim(bottom=0, top=current_ylim[1])
     ax.grid()
-    plt.show()
+
+    ax.legend(handles=[data_handle, fit_handle])
+
 
     return rates, fit_metrics, fig
 
@@ -250,68 +264,68 @@ def koff_kb_rates(tracks_dict, tau_int, sample_name, root_directory, destination
 
 
 # def compute_keffs_cumulative_survival(counts_dict):
-    """
-    Input raw counts for each timelapse interval for calculating keffs.
-    Args:
-    - counts_dict (dict): Dictionary where keys represent tau_tl (unit: seconds)
-      and values represent a list/array of raw counts for each frame (exact lifetime counts).
+#     """
+#     Input raw counts for each timelapse interval for calculating keffs.
+#     Args:
+#     - counts_dict (dict): Dictionary where keys represent tau_tl (unit: seconds)
+#       and values represent a list/array of raw counts for each frame (exact lifetime counts).
 
-    Returns:
-    - keffs_dict (dict): keys are tau_tl and values represent a tuple of (k_eff, k_eff_sd_error)
-    - fig (matplotlib object): plot of the exponential fittings
-    """
+#     Returns:
+#     - keffs_dict (dict): keys are tau_tl and values represent a tuple of (k_eff, k_eff_sd_error)
+#     - fig (matplotlib object): plot of the exponential fittings
+#     """
 
-    keff_dict = {}
+#     keff_dict = {}
 
-    def exp_decay(x, A, k_eff):
-        return A * np.exp(-k_eff * x)
+#     def exp_decay(x, A, k_eff):
+#         return A * np.exp(-k_eff * x)
 
-    fig, ax = plt.subplots()
+#     fig, ax = plt.subplots()
 
-    for tau_tl, value in counts_dict.items():
-        counts = np.array(value[0])
+#     for tau_tl, value in counts_dict.items():
+#         counts = np.array(value[0])
 
-        # Calculate survival fraction from raw counts
-        total = counts.sum()
-        survival = np.array([counts[i:].sum() / total for i in range(len(counts))])
+#         # Calculate survival fraction from raw counts
+#         total = counts.sum()
+#         survival = np.array([counts[i:].sum() / total for i in range(len(counts))])
 
-        actual_x = np.arange(2, len(counts) + 2) * tau_tl  # Frames start at 2 as per your data
-        fit_x = np.linspace(min(actual_x), max(actual_x), 200)
+#         actual_x = np.arange(2, len(counts) + 2) * tau_tl  # Frames start at 2 as per your data
+#         fit_x = np.linspace(min(actual_x), max(actual_x), 200)
 
-        # Filter out zero or negative survival values for log transform
-        valid = survival > 0
-        actual_x_valid = actual_x[valid]
-        survival_valid = survival[valid]
-        log_survival = np.log(survival_valid)
+#         # Filter out zero or negative survival values for log transform
+#         valid = survival > 0
+#         actual_x_valid = actual_x[valid]
+#         survival_valid = survival[valid]
+#         log_survival = np.log(survival_valid)
 
-        # Initial guess from linear fit in log space
-        slope, intercept = np.polyfit(actual_x_valid, log_survival, 1)
-        k_eff_guess = -slope
-        A_guess = np.exp(intercept)
-        p0 = [A_guess, k_eff_guess]
+#         # Initial guess from linear fit in log space
+#         slope, intercept = np.polyfit(actual_x_valid, log_survival, 1)
+#         k_eff_guess = -slope
+#         A_guess = np.exp(intercept)
+#         p0 = [A_guess, k_eff_guess]
 
-        # Fit the survival fraction data
-        popt, pcov = curve_fit(exp_decay, actual_x, survival, p0=p0)
+#         # Fit the survival fraction data
+#         popt, pcov = curve_fit(exp_decay, actual_x, survival, p0=p0)
 
-        A_fit, k_eff_fit = popt
-        perr = np.sqrt(np.diag(pcov))
-        A_err, k_eff_err = perr
+#         A_fit, k_eff_fit = popt
+#         perr = np.sqrt(np.diag(pcov))
+#         A_err, k_eff_err = perr
 
-        keff_dict[tau_tl] = (k_eff_fit, k_eff_err)
+#         keff_dict[tau_tl] = (k_eff_fit, k_eff_err)
 
-        scatter = ax.scatter(actual_x, survival, label=f'{tau_tl}s data')
-        ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-                label=f'{tau_tl}s fit - $k_{{eff}}$ = {k_eff_fit:.2f} ± {k_eff_err:.2g}',
-                color=scatter.get_facecolors()[0])
+#         scatter = ax.scatter(actual_x, survival, label=f'{tau_tl}s data')
+#         ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
+#                 label=f'{tau_tl}s fit - $k_{{eff}}$ = {k_eff_fit:.2f} ± {k_eff_err:.2g}',
+#                 color=scatter.get_facecolors()[0])
 
-    ax.set_xscale('log')
-    ax.grid(which='both', linestyle='--', linewidth=0.5)
-    ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
-    ax.set_ylabel("Survival Fraction")
-    ax.legend()
-    plt.show()
+#     ax.set_xscale('log')
+#     ax.grid(which='both', linestyle='--', linewidth=0.5)
+#     ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
+#     ax.set_ylabel("Survival Fraction")
+#     ax.legend()
+#     plt.show()
 
-    return keff_dict, fig
+#     return keff_dict, fig
 
 
     
