@@ -89,7 +89,7 @@ def compute_keffs(counts_dict):
         keff_dict[tau_tl] = (k_eff_fit, k_eff_err)
 
         scatter = ax.scatter(actual_x, counts, label=f'{tau_tl}s data')
-        label = rf"{tau_tl}s fit: $k_{{\mathrm{{eff}}}} = {k_eff_fit:.3f} \pm {k_eff_err:.3f} \ \mathrm{{s^{{-1}}}}$"
+        label = rf"{tau_tl}s fit"
         line, = ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
                          label = label,
                          color = scatter.get_facecolors()[0])
@@ -129,7 +129,7 @@ def compute_keffs(counts_dict):
 
         scatter = ax2.scatter(actual_x, perc_surviving, label=f'{tau_tl}s data')
         
-        label = rf"{tau_tl}s fit: $k_{{\mathrm{{eff}}}} = {k_eff_fit:.3f} \pm {k_eff_err:.3f} \ \mathrm{{s^{{-1}}}}$"
+        label = rf"{tau_tl}s fit"
 
         ax2.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
                 label = label,
@@ -147,54 +147,59 @@ def compute_keffs(counts_dict):
 
 def compute_koffs(keff_dict, tau_int):
     """
-    uses keffs for each timelapse interval and computes koff and kb.
+    Weighted linear fit of keff * tau_tl vs tau_tl using keff std errors as weights.
+
     Args:
-    - keff_dict (dict): Dictionary where keys represent tau_tl (unit: seconds) and values represent a tuple of (k_eff, k_eff_sd_error)
-    - tau_int (float): camera integration time/exposure time in seconds.
+    - keff_dict (dict): {tau_tl: (k_eff, k_eff_std_error)}
+    - tau_int (float): camera integration/exposure time in seconds.
 
     Returns:
-    - rates (tuple): (dissociation_rate, photobleaching_rate) in seconds^-1
-    - fit_metrics (tuple): (k_off_standard_error, r_square_value)
-    - fig (matplotlib object): plot of the linear fit
+    - rates (tuple): (k_off, k_b) in s^-1
+    - fit_metrics (tuple): (r_squared, k_off_std_error)
+    - fig (matplotlib figure): plot of weighted linear fit
     """
+
+    def linear_func(x, m, c):
+        return m * x + c
+
     tau_tl_list = np.array(list(keff_dict.keys()))
-    keff_values = np.array(np.array([v[0] for v in keff_dict.values()]))
-    keff_errors = np.array(np.array([v[1] for v in keff_dict.values()]))
+    keff_values = np.array([v[0] for v in keff_dict.values()])
+    keff_errors = np.array([v[1] for v in keff_dict.values()])
 
-    keff_tl_data = keff_values*tau_tl_list
-    keff_tl_errors = keff_errors*tau_tl_list
+    y = keff_values * tau_tl_list
+    y_err = keff_errors * tau_tl_list
 
-    slope, intercept, r_value, p_value, koff_std_err = linregress(tau_tl_list, keff_tl_data)
+    popt, pcov = curve_fit(linear_func, tau_tl_list, y, sigma=y_err, absolute_sigma=True)
+    slope, intercept = popt
+    koff_std_err = np.sqrt(np.diag(pcov))[0]
 
-    k_off = slope 
+    k_off = slope
     c_b = intercept
     k_b = c_b / tau_int
 
+    r_value = np.corrcoef(tau_tl_list, y)[0, 1]
+    r_squared = r_value**2
+
     rates = (k_off, k_b)
-    fit_metrics = (r_value**2, koff_std_err)
+    fit_metrics = (r_squared, koff_std_err)
 
     t = np.linspace(0, max(tau_tl_list), 200)
-    fit = k_off * t + c_b
+    fit = linear_func(t, slope, intercept)
 
     fig, ax = plt.subplots()
+    k_off_annot = rf"$k_{{\mathrm{{off}}}} = {k_off:.3f} \mathrm{{s^{{-1}}}}$"
 
-    k_off_annot = rf"$k_{{\mathrm{{off}}}} = {k_off:.3f} \pm {koff_std_err:.3f} \ \mathrm{{s^{{-1}}}}$"
-
-    # plotting data first
-    data_handle = ax.errorbar(tau_tl_list, keff_tl_data, yerr=keff_tl_errors,
-                            fmt='o', color='black', capsize=3, elinewidth=1, label='Data ± SE')
-
-    fit_handle, = ax.plot(t, fit, color='black', label=f'Linear fit: {k_off_annot}')
+    data_handle = ax.errorbar(tau_tl_list, y, yerr=y_err, fmt='o', color='black', capsize=3, elinewidth=1, label='data ± SE', zorder=2)
+    fit_handle, = ax.plot(t, fit, color='grey', label=f'fit: {k_off_annot}', zorder=1)
 
     ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
     ax.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-
     current_ylim = ax.get_ylim()
     ax.set_ylim(bottom=0, top=current_ylim[1])
     ax.grid()
-
     ax.legend(handles=[data_handle, fit_handle])
 
+    plt.show()
 
     return rates, fit_metrics, fig
 
@@ -235,7 +240,7 @@ def koff_kb_rates(tracks_dict, tau_int, sample_name, root_directory, destination
     linFit_fig.savefig(lin_fit_destination)
 
     # txt to save/store results.
-    txt_out = "=== Residence Time Analysis - Results ===\n\n"
+    txt_out = f"=== Residence Time Analysis of {sample_name} - Results ===\n\n"
     txt_out += "Inputs per timelapse experiment:\n"
     for tau_tl, (counts, total_counts, numFOVs) in counts_dict.items():
         txt_out += f"-  timelapse {tau_tl}s : numFOVs = {numFOVs} | total_numTracks = {total_counts}\n"
@@ -249,85 +254,14 @@ def koff_kb_rates(tracks_dict, tau_int, sample_name, root_directory, destination
     txt_out += "\nk_off and k_b values from linear fitting:\n"
     txt_out += f"-  Dissociation rate:  k_off = {rates[0]:.4f} ± {linFit_metrics[1]:.4f} seconds^-1\n"
     txt_out += f"-  Photobleaching rate:  k_b = {rates[1]:.4f} seconds^-1\n"
-    txt_out += f"-  R^2 = {linFit_metrics[0]:.4f}"
+    txt_out += f"-  R^2 = {linFit_metrics[0]:.4f}\n\n"
+    txt_out += f"Residence Time = {(1/rates[0]):.2f} seconds"
 
     print(txt_out)
 
     txt_destination = os.path.join(destination_dir, 'analysis_results.txt')
     with open(txt_destination, 'w') as file:
         file.write(txt_out)
-    
 
 
 
-
-
-
-# def compute_keffs_cumulative_survival(counts_dict):
-#     """
-#     Input raw counts for each timelapse interval for calculating keffs.
-#     Args:
-#     - counts_dict (dict): Dictionary where keys represent tau_tl (unit: seconds)
-#       and values represent a list/array of raw counts for each frame (exact lifetime counts).
-
-#     Returns:
-#     - keffs_dict (dict): keys are tau_tl and values represent a tuple of (k_eff, k_eff_sd_error)
-#     - fig (matplotlib object): plot of the exponential fittings
-#     """
-
-#     keff_dict = {}
-
-#     def exp_decay(x, A, k_eff):
-#         return A * np.exp(-k_eff * x)
-
-#     fig, ax = plt.subplots()
-
-#     for tau_tl, value in counts_dict.items():
-#         counts = np.array(value[0])
-
-#         # Calculate survival fraction from raw counts
-#         total = counts.sum()
-#         survival = np.array([counts[i:].sum() / total for i in range(len(counts))])
-
-#         actual_x = np.arange(2, len(counts) + 2) * tau_tl  # Frames start at 2 as per your data
-#         fit_x = np.linspace(min(actual_x), max(actual_x), 200)
-
-#         # Filter out zero or negative survival values for log transform
-#         valid = survival > 0
-#         actual_x_valid = actual_x[valid]
-#         survival_valid = survival[valid]
-#         log_survival = np.log(survival_valid)
-
-#         # Initial guess from linear fit in log space
-#         slope, intercept = np.polyfit(actual_x_valid, log_survival, 1)
-#         k_eff_guess = -slope
-#         A_guess = np.exp(intercept)
-#         p0 = [A_guess, k_eff_guess]
-
-#         # Fit the survival fraction data
-#         popt, pcov = curve_fit(exp_decay, actual_x, survival, p0=p0)
-
-#         A_fit, k_eff_fit = popt
-#         perr = np.sqrt(np.diag(pcov))
-#         A_err, k_eff_err = perr
-
-#         keff_dict[tau_tl] = (k_eff_fit, k_eff_err)
-
-#         scatter = ax.scatter(actual_x, survival, label=f'{tau_tl}s data')
-#         ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-#                 label=f'{tau_tl}s fit - $k_{{eff}}$ = {k_eff_fit:.2f} ± {k_eff_err:.2g}',
-#                 color=scatter.get_facecolors()[0])
-
-#     ax.set_xscale('log')
-#     ax.grid(which='both', linestyle='--', linewidth=0.5)
-#     ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
-#     ax.set_ylabel("Survival Fraction")
-#     ax.legend()
-#     plt.show()
-
-#     return keff_dict, fig
-
-
-    
-
-    
