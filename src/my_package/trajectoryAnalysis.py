@@ -126,7 +126,7 @@ def main():
     suffix = SUFFIX3D
       
   for directory in args.directories:
-    print('Processing directory %s' % directory)
+    print(f'Processing directory {directory}\n')
     xs = []
     ys = []
     all_tracks = []
