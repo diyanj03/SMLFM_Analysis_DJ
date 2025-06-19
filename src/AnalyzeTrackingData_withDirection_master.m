@@ -42,7 +42,7 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             'exportResults', true,...      % export results  [true/false]
             'exportFigures',true,...       % export fig files
             'exportCI', true, ...         % export confidence interval
-            'resultFolder',fullfile(pwd,'..','Results'),... % result folder (default=code folder/../)
+            'resultFolder',fullfile(pwd,'..','results'),... % result folder (default=code folder/../)
             'exportPDBtrajectories', true,... % export trajectories as pdb file
             'allowFrameSkipping', true,... % exclude trajectories with frame skipping
             'numHistFitTrials',5,...          % number histogram fitting trials
