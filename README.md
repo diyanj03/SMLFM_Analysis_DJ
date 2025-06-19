@@ -71,7 +71,7 @@ Add bin directory to system `PATH`:
 - Install: "Desktop dev with C++" + MSVC, Windows SDK, CMake
 <br><br>
 
-**MATLAB (R2024b):**
+#### MATLAB (R2024b):
 - Download from [mathworks.com](https://www.mathworks.com/downloads/).
 - Add `MATLAB/bin` to system `PATH`.
 - Verify installation:
