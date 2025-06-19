@@ -300,7 +300,7 @@ For more information refer to - Gebhardt et al., Nat Methods, 2013.
 
 ---
  
-### *The pipeline has been tested using a 20ms SMLFM dataset of a HaloTag-tagged NANOG mutant in live mESCs. Raw data and results for this can be found in the 'tests' folder.*   
+### *The pipeline has been tested using a 20ms SMLFM dataset of a HaloTag-tagged NANOG mutant in live mESCs. Raw data, configs and results for this can be found in the 'tests' folder.*   
 
 
 
