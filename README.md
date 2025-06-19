@@ -5,12 +5,6 @@ It first performs 2D fitting of raw timestack images, followed by 3D fitting to 
 Residence time analysis can also be performed using tracks obtained from time-lapse experiments to compute dissocation rate of the TF from DNA.
 
 
-**Sections for this guide:**
-
-1.  **Environment Setup**: Downloading and installing system-level tools & softwares, configuring paths, creating a virtual environment, and installing dependencies.
-
-2.  **Running the Analysis**: Running the pipeline step-by-step on Jupyter Notebook, inputs to provide, and handling configurations.
-
 
 ## 1. Environment Setup
 
