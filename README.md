@@ -1,110 +1,105 @@
 # lfmSPTanalysis
 
-This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. It first performs 2D fitting of raw images, followed by 3D fitting to obtain axial positions. Single particle trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as chromatin-bound fraction, diffusion coefficient, and association rate to chromatin. Residence time analysis can also be performed using tracks obtained from time lapse experiments to compute dissocation rate of the TF to chromatin.
+This pipeline quantifies the biophysical parameters of a nuclear transcription factor from live-cell single molecule light field microscopy (SMLFM) data. 
+It first performs 2D fitting of raw timestack images, followed by 3D fitting to obtain axial positions. Single particle spatiotemporal trajectories (SPTs) are then obtained and are classified into two populations based on track-wise biophysical parameters. It then computes global parameters of the TF such as DNA-bound fraction, diffusion coefficient, and association rate to DNA. 
+Residence time analysis can also be performed using tracks obtained from time-lapse experiments to compute dissocation rate of the TF from DNA.
 
 
 **Sections for this guide:**
 
-1.  **Python Environment Setup**: Downloading and installing system-level tools & softwares, configuring paths, creating a virtual environment, and installing Python dependencies.
+1.  **Environment Setup**: Downloading and installing system-level tools & softwares, configuring paths, creating a virtual environment, and installing dependencies.
 
-2.  **Running the Analysis (using Jupyter Notebook)**: Running the pipeline step-by-step, inputs to provide, and handling configurations.
+2.  **Running the Analysis**: Running the pipeline step-by-step on Jupyter Notebook, inputs to provide, and handling configurations.
 
-*Note: This guide assumes Windows OS for environment setup. For a Unix-like system (macOS/Linux/WSL), you can set up the environment in an analagous way to the instructions that will follow.* <br>
 
-***Recommended**: use an interface like [VSCode](https://code.visualstudio.com/download) with Python and Jupyter extensions installed to run the analysis using the Jupyter Notebook. Alternatively, Jupyter Notebook or JupyterLab can be used too.*
+## 1. Environment Setup
 
-<br>
+### 1.1. Download the Repository
 
-## 1. Python Environment Setup
-
-### 1.1. Download Project Repository
-
-1. Go to `https://github.com/diyanj03/lfmSPTanalysis` on github.
-2. Click `<> Code` → `Download ZIP`.
-3. Extract the folder to your desired location. Your workspace should initially have:
-    * `src/` (source code)
-    * `configs/` (configuration files)
-    * `tests/` (tested dataset and results)
-    * `README.md` (this file)
-    * `requirements.txt` (Python dependencies list)
-
-*Note your extracted path, e.g.: `C:/Users/username/Documents/lfmSPTanalysis-main`*
-
+- Download/clone from GitHub: [diyanj03/lfmSPTanalysis](https://github.com/diyanj03/lfmSPTanalysis)
+- Your workspace should contain:
+    - `src/`, `configs/`, `tests/`, `README.md`,`requirements.txt`
 ---
 
 ### 1.2. Install Core Software
 
-Install the following software. Tested versions are indicated in parentheses.
-
-
-**Python (3.13):**
+#### Python (3.13):
 - Download from [python.org](https://www.python.org/downloads/)
-- During install: **tick "Add Python X.XX to PATH"**
-- Verify installation on terminal: `py --version` and `pip --version`
-<br><br>
+- During install: ✅ *Add to PATH*  
+- Confirm installation on terminal:
+  ```bash
+  py --version
+  pip --version
 
-**JDK (21.0.6.7-hotspot):**
-- Download from [Adoptium](https://adoptium.net/temurin/releases/)
-- Extract to a suitable location, e.g.: `C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot`.
-- Set Environment Variables (Windows):
-    1. Windows search → **"Edit the system environment variables"** → **Environment Variables...**
-    2. Under *System variables* → **New...**  
-        - **Variable name:** `JAVA_HOME`  
-        - **Variable value:** `C:\your\path\to\Eclipse Adoptium\jdk-21.0.6.7-hotspot`
-        - Click **OK**
-    3. Still in *System variables* → Select **Path** → **Edit...** → Select **New** → enter `%JAVA_HOME%\bin`
-    4. Click **OK** on all windows to apply changes.
-- Verify installation on terminal: `java -version`. 
-<br><br>
+#### Java JDK 21 (Temurin):
+- Download from [adoptium.net](https://adoptium.net/temurin/releases/)
+- Extract to a suitable location.
 
-**Apache Maven (3.9.9):**
+Add bin directory to system `Path`:
+- Windows:
+    1. Add `JAVA_HOME` as a system variable to the path where you extracted the JDK (e.g. `C:\Program Files\Eclipse Adoptium\jdk-21.x.x`)
+    2. Add `%JAVA_HOME%\bin` to your system `Path` variable
+ 
+- macOS/Linux:
+    - Add the following to your shell config file (e.g. `~/.bashrc`, `~/.zshrc`): 
+    
+    ```bash
+    export JAVA_HOME=/path/to/your/jdk
+    export PATH=$JAVA_HOME/bin:$PATH
+    ```
+
+
+#### Apache Maven (3.9.9):
 
 - Download the "Binary zip archive" from [maven.apache.org](https://maven.apache.org/download.cgi)
-- Extract to a suitable location, e.g.: `C:\Program Files\apache-maven-3.9.9`
-- Add bin directory path to system `Path`.
-- Verify installation on terminal: `mvn -version`.
-<br><br>
+- Extract and add bin directory to your system `Path` like you did for JDK 
+- Verify installation:
+    ```bash
+    mvn -version
+    ```
 
-**Fiji ImageJ2:**
+
+#### Fiji ImageJ2:
 - Download version 2.16.0/1.54p with GDSC-SMLM2 PeakFit plugin from this [onedrive_link](https://1drv.ms/u/c/4b95c84a5c5eb7e0/EW_BqP-NbElKhGFYc3vsQFcBVx6-iJrRClgTlfgZeFLxwA?e=akZzXw)
-- Extract to a location outside **'C:/Program Files/'**, e.g.: `C:\Users\username\Applications\Fiji.app` and note this path.
-<br><br>
+- Extract outside `Program Files`
+- Install pip package:
+    ```
+    pip install pyimagej
+    ```
+- Confirm installation:
+    ```
+    py -c 'import imagej; print("ImageJ initialised successfully." if imagej.init("your/path/to/Fiji.app") else "ImageJ initialisation failed.")'
+    ```
 
-**Microsoft C++ Build Tools (Windows only):**
-- Download from [Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
-- Run the installer (`vs_buildtools.exe`):
-    * Select "Desktop development with C++" workload.
-    * Ensure these components are checked: "MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest)", "Windows SDK" (latest appropriate), "C++ CMake tools for Windows".
-    * Click **"Install"**.
-- (Optional) Add MSVC binary path to your system `Path` for easier access by `pip`. 
+#### C++ Build Tools (Windows only):
+- Download from [visualstudio.microsoft.com](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+- Install: "Desktop dev with C++" + MSVC, Windows SDK, CMake
 <br><br>
 
 **MATLAB (R2024b):**
-- Download from [MathWorks](https://www.mathworks.com/downloads/).
-- Add MATLAB's `bin` directory (e.g.: `C:\Program Files\MATLAB\R2024b\bin`) to your system `Path`.
-- Verify installation on terminal: `matlab -batch "disp(['MATLAB version: ' version]); exit"`.
-- Open the application and install the following add-ons:
+- Download from [mathworks.com](https://www.mathworks.com/downloads/).
+- Add `MATLAB/bin` to system `PATH`.
+- Verify installation:
+    ```
+    matlab -batch "disp(['MATLAB version: ' version]); exit"
+    ```
+- Install the following add-ons:
     -  Curve Fitting Toolbox
     -  Image Processing Toolbox
     -  Statistics and Machine Learning Toolbox
 
 ---
 
-### 1.3. Create & Activate Python Virtual Environment
+### 1.3. Set Up Virtual Environment
 
 
-1.  Run the following command on terminal to navigate to the `lfmSPTanalysis-main` project directory:
+1.  Navigate to the `lfmSPTanalysis-main` project directory and create a virtual py environment:
     ```
     cd your/path/to/lfmSPTanalysis-main
-    ```
-    *(Replace `your/path/to/lfmSPTanalysis-main` with the actual path to the folder noted in step 1.1).*
-
-2. Create virtual environment, once inside project directory:
-    ```
     py -m venv .venv
     ```
 
-3. Activate venv by running the following command: 
+2. Activate venv by running the following command: 
     * CMD: `.venv\Scripts\activate`
     * PowerShell: `.venv\Scripts\Activate.ps1`
     * Bash: `source .venv/bin/activate`
@@ -115,32 +110,24 @@ Install the following software. Tested versions are indicated in parentheses.
 ---
 ### 1.4. Install Python Dependencies
 
-With the active virtual environment inside the project directory, run the following:
+With an active virtual environment, install dependencies:
 ```
 pip install -r requirements.txt
 ```
-This installs all python packages required for the analysis pipeline.
-
 ---
-### 1.5. Connecting .venv to the Jupyter Notebook
+### 1.5. Link virtual environment to Jupyter
 
-The `main.ipynb` notebook in the `src` folder will be used for analysis. Ensure the `.venv` kernel is selected so the notebook uses the virtual environment's Python interpreter.
+The `src/main.ipynb` in your Jupyter editor (recommended: [VSCode](https://code.visualstudio.com/download)).
 
-- **In any IDE or environment (JupyterLab, VS Code, PyCharm, etc.):**  
-  Open `main.ipynb`. If the kernel/interpreter isn't auto-detected:
-  - Go to the kernel or interpreter selection menu.
-  - Manually select the Python interpreter from your virtual environment:
-    - **Windows:**  
-      `your\path\to\lfmSPTanalysis-main\.venv\Scripts\python.exe`
-    - **macOS/Linux:**  
-      `your/path/to/lfmSPTanalysis-main/.venv/bin/python`
-  - Use options like **"Change Kernel"**, **"Add Interpreter"**, or **"Enter interpreter path"** as needed.
+Manually select the `.venv` kernel as python interpreter:
+- Windows: `.venv\Scripts\python.exe
+- macOS/Linux: `.venv/bin/python`
 
 <br>
 
-## 2. Implementing the Analysis Pipeline (in main.ipynb)
+## 2. Running the Analysis
 
-Once all software has been installed, and the kernel in main.ipynb has been selected as your virtual environment (.venv) (Section 1), you can now begin running the analysis on `main.ipynb`.
+Launch `main.ipynb` on Jupyter. Follow the notebook cells step-by-step, adjusting configs/inputs as detailed below. 
 
 
 ### 2.1. Defining root directory and importing packages (cell 1)
