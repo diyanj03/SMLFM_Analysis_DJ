@@ -24,6 +24,7 @@ Residence time analysis can also be performed using tracks obtained from time-la
   ```bash
   py --version
   pip --version
+  ```
 
 #### Java JDK 21 (Temurin):
 - Download from [adoptium.net](https://adoptium.net/temurin/releases/)
