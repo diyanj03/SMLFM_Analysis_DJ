@@ -29,7 +29,7 @@ Residence time analysis can also be performed using tracks obtained from time-la
 - Download from [adoptium.net](https://adoptium.net/temurin/releases/)
 - Extract to a suitable location.
 
-Add bin directory to system `Path`:
+Add bin directory to system `PATH`:
 - Windows:
     1. Add `JAVA_HOME` as a system variable to the path where you extracted the JDK (e.g. `C:\Program Files\Eclipse Adoptium\jdk-21.x.x`)
     2. Add `%JAVA_HOME%\bin` to your system `Path` variable
@@ -46,7 +46,7 @@ Add bin directory to system `Path`:
 #### Apache Maven (3.9.9):
 
 - Download the "Binary zip archive" from [maven.apache.org](https://maven.apache.org/download.cgi)
-- Extract and add bin directory to your system `Path` like you did for JDK 
+- Extract and add bin directory to your system `PATH` like you did for JDK 
 - Verify installation:
     ```bash
     mvn -version
