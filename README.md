@@ -114,8 +114,8 @@ pip install -r requirements.txt
 
 The `src/main.ipynb` in your Jupyter editor (recommended: [VSCode](https://code.visualstudio.com/download)).
 
-Manually select the `.venv` kernel as python interpreter:
-- Windows: `.venv\Scripts\python.exe
+Select the `.venv` kernel as python interpreter:
+- Windows: `.venv\Scripts\python.exe`
 - macOS/Linux: `.venv/bin/python`
 
 <br>
