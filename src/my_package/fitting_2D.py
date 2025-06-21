@@ -304,7 +304,7 @@ def _image_info(image):
 
 def _run_peak_fit(
                   ij, java_timeseries, datasetName, root_directory,
-                  run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
+                  run_background_subtraction, rb_radius, run_gaussian_blur, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                   spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                   pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                   min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -323,51 +323,93 @@ def _run_peak_fit(
         java_output_dir = locs2d_xls_directory.replace('\\', '/') + '/'
         java_csv_out = locs2d_csv_directory.replace('\\', '/') + '/'
         
-        macro_code = ""
-        if run_background_subtraction:
-            macro_code += f'run("Subtract Background...", "rolling={rb_radius} disable stack")'
-        
-        macro_code += textwrap.dedent(f"""                    
-        run("Z Project...", "projection=[Average Intensity]");
-        imageCalculator("Subtract create stack", "{datasetName}","AVG_{datasetName}");
-        run("Add...", "value={offset_value} stack");
-        run("Gaussian Blur...", "sigma={sigma} stack");
-        selectWindow("{datasetName}")
-        close();
-        selectWindow("AVG_{datasetName}")
-        close();
-        selectWindow("Result of {datasetName}")
-
-        run("Peak Fit", 
-            "template=None camera_type=EMCCD calibration={calibration} exposure_time={exposure_time} " + 
-            "psf=[{psf_model}] spot_filter_type={spot_filter_type} spot_filter={spot_filter} " +
-            "smoothing={smoothing} spot_filter2={spot_filter2} smoothing2={smoothing2} " +
-            "search_width={search_width} border_width={border_width} fitting_width={fitting_width} fit_solver=[{fit_solver}] " +
-            "fail_limit={fail_limit} pass_rate={pass_rate} neighbour_height={neighbour_height} " +
-            "residuals_threshold={residuals_threshold} duplicate_distance={duplicate_distance} shift_factor={shift_factor} signal_strength={signal_strength} " +
-            "min_photons={min_photons} min_width_factor={min_width_factor} max_width_factor={max_width_factor} precision={precision} " +
-            "show_results_table image=[Localisations (width=precision)] results_format=Text " +
-            "results_directory=[{java_output_dir}] " +
-            "save_to_memory camera_bias={camera_bias} gain={gain} read_noise={read_noise} psf_parameter_1={psf_parameter_1} " +
-            "relative_threshold={relative_threshold} absolute_threshold={absolute_threshold} parameter_relative_threshold={parameter_relative_threshold} " +
-            "parameter_absolute_threshold={parameter_absolute_threshold} max_iterations={max_iterations} lambda={lambdaa} " +
-            "duplicate_distance_absolute precision_method={precision_method} table_distance_unit=[pixel (px)] " +
-            "table_intensity_unit=photon table_angle_unit=[degree (°)] table_show_precision " +
-            "table_precision=0 equalised image_size_mode=[Image size] image_scale={image_scale} image_size={image_size} " +
-            "image_pixel_size={image_pixel_size} lut=Fire file_distance_unit=[pixel (px)] " +
-            "file_intensity_unit=photon file_angle_unit=[degree (°)] file_show_precision");
+        if run_gaussian_blur:
+            macro_code = ""
+            if run_background_subtraction:
+                macro_code += f'selectWindow("{datasetName}")\n'
+                macro_code += f'run("Subtract Background...", "rolling={rb_radius} disable stack")'
             
+            macro_code += textwrap.dedent(f"""                    
+            run("Z Project...", "projection=[Average Intensity]");
+            imageCalculator("Subtract create stack", "{datasetName}","AVG_{datasetName}");
+            run("Add...", "value={offset_value} stack");
+            run("Gaussian Blur...", "sigma={sigma} stack");
+            selectWindow("{datasetName}")
+            close();
+            selectWindow("AVG_{datasetName}")
+            close();
             selectWindow("Result of {datasetName}")
-            close();
-            selectWindow("Result of {datasetName} (LVM LSE) SuperRes");
-            close();
 
-            run("Text File... ", "open=[{java_output_dir}Result of {datasetName}.results.xls]");
+            run("Peak Fit", 
+                "template=None camera_type=EMCCD calibration={calibration} exposure_time={exposure_time} " + 
+                "psf=[{psf_model}] spot_filter_type={spot_filter_type} spot_filter={spot_filter} " +
+                "smoothing={smoothing} spot_filter2={spot_filter2} smoothing2={smoothing2} " +
+                "search_width={search_width} border_width={border_width} fitting_width={fitting_width} fit_solver=[{fit_solver}] " +
+                "fail_limit={fail_limit} pass_rate={pass_rate} neighbour_height={neighbour_height} " +
+                "residuals_threshold={residuals_threshold} duplicate_distance={duplicate_distance} shift_factor={shift_factor} signal_strength={signal_strength} " +
+                "min_photons={min_photons} min_width_factor={min_width_factor} max_width_factor={max_width_factor} precision={precision} " +
+                "show_results_table image=[Localisations (width=precision)] results_format=Text " +
+                "results_directory=[{java_output_dir}] " +
+                "save_to_memory camera_bias={camera_bias} gain={gain} read_noise={read_noise} psf_parameter_1={psf_parameter_1} " +
+                "relative_threshold={relative_threshold} absolute_threshold={absolute_threshold} parameter_relative_threshold={parameter_relative_threshold} " +
+                "parameter_absolute_threshold={parameter_absolute_threshold} max_iterations={max_iterations} lambda={lambdaa} " +
+                "duplicate_distance_absolute precision_method={precision_method} table_distance_unit=[pixel (px)] " +
+                "table_intensity_unit=photon table_angle_unit=[degree (°)] table_show_precision " +
+                "table_precision=0 equalised image_size_mode=[Image size] image_scale={image_scale} image_size={image_size} " +
+                "image_pixel_size={image_pixel_size} lut=Fire file_distance_unit=[pixel (px)] " +
+                "file_intensity_unit=photon file_angle_unit=[degree (°)] file_show_precision");
+                
+                selectWindow("Result of {datasetName}")
+                close();
+                selectWindow("Result of {datasetName} (LVM LSE) SuperRes");
+                close();
 
-            saveAs("Text", "{java_csv_out}{datasetName}_locs2D.csv");
+                run("Text File... ", "open=[{java_output_dir}Result of {datasetName}.results.xls]");
 
-            run("Close All");
-            """)
+                saveAs("Text", "{java_csv_out}{datasetName}_locs2D.csv");
+
+                run("Close All");
+                """)
+        
+        else: 
+            macro_code = ""
+            if run_background_subtraction:
+                macro_code += f'selectWindow("{datasetName}")\n'
+                macro_code += f'run("Subtract Background...", "rolling={rb_radius} disable stack")'
+            
+            macro_code += textwrap.dedent(f"""                    
+            selectWindow("{datasetName}")
+
+            run("Peak Fit", 
+                "template=None camera_type=EMCCD calibration={calibration} exposure_time={exposure_time} " + 
+                "psf=[{psf_model}] spot_filter_type={spot_filter_type} spot_filter={spot_filter} " +
+                "smoothing={smoothing} spot_filter2={spot_filter2} smoothing2={smoothing2} " +
+                "search_width={search_width} border_width={border_width} fitting_width={fitting_width} fit_solver=[{fit_solver}] " +
+                "fail_limit={fail_limit} pass_rate={pass_rate} neighbour_height={neighbour_height} " +
+                "residuals_threshold={residuals_threshold} duplicate_distance={duplicate_distance} shift_factor={shift_factor} signal_strength={signal_strength} " +
+                "min_photons={min_photons} min_width_factor={min_width_factor} max_width_factor={max_width_factor} precision={precision} " +
+                "show_results_table image=[Localisations (width=precision)] results_format=Text " +
+                "results_directory=[{java_output_dir}] " +
+                "save_to_memory camera_bias={camera_bias} gain={gain} read_noise={read_noise} psf_parameter_1={psf_parameter_1} " +
+                "relative_threshold={relative_threshold} absolute_threshold={absolute_threshold} parameter_relative_threshold={parameter_relative_threshold} " +
+                "parameter_absolute_threshold={parameter_absolute_threshold} max_iterations={max_iterations} lambda={lambdaa} " +
+                "duplicate_distance_absolute precision_method={precision_method} table_distance_unit=[pixel (px)] " +
+                "table_intensity_unit=photon table_angle_unit=[degree (°)] table_show_precision " +
+                "table_precision=0 equalised image_size_mode=[Image size] image_scale={image_scale} image_size={image_size} " +
+                "image_pixel_size={image_pixel_size} lut=Fire file_distance_unit=[pixel (px)] " +
+                "file_intensity_unit=photon file_angle_unit=[degree (°)] file_show_precision");
+                
+                selectWindow("{datasetName}")
+                close();
+                selectWindow("{datasetName} (LVM LSE) SuperRes");
+                close();
+
+                run("Text File... ", "open=[{java_output_dir}{datasetName}.results.xls]");
+
+                saveAs("Text", "{java_csv_out}{datasetName}_locs2D.csv");
+
+                run("Close All");
+                """)
         
 
         pf_time = f'{((time.time() - tic))/60:.3f} mins'
@@ -423,7 +465,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                 other_settings = config_data.get('other_less_relevant_settings', {})
 
             else:
-                logging.info(f"Configuration file not found at {config_path}.Falling back to default.")
+                logging.info(f"Configuration file not found at {config_path}. Falling back to default!!")
                 config_path = None
 
         if not config_name or not config_path:
@@ -452,6 +494,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
     # Override peak fit parameters
     run_background_subtraction = pre_processing.get('run_background_subtraction')
     rb_radius = pre_processing.get('rb_radius')
+    run_gaussian_blur = pre_processing.get('run_gaussian_blur')
     sigma = pre_processing.get('sigma')
     offset_value = pre_processing.get('offset_value')
 
@@ -533,7 +576,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
                     _image_info(jv_timeseries)
 
-                    _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
+                    _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, run_gaussian_blur, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                                                                                 spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                                 pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                                 min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
@@ -578,7 +621,7 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
 
             _image_info(jv_timeseries)
 
-            csv_file_path, macro_code = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
+            csv_file_path, macro_code = _run_peak_fit(ij, jv_timeseries, datasetName, root_directory, run_background_subtraction, rb_radius, run_gaussian_blur, offset_value, sigma, calibration, exposure_time, psf_model, spot_filter_type,
                                                                         spot_filter, smoothing, spot_filter2, smoothing2, search_width, border_width, fitting_width, fit_solver, fail_limit, 
                                                                         pass_rate, neighbour_height, residuals_threshold, duplicate_distance, shift_factor, signal_strength,
                                                                         min_photons, min_width_factor, max_width_factor, precision, camera_bias, gain, read_noise, 
