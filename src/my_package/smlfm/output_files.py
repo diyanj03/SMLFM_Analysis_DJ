@@ -16,10 +16,17 @@ class OutputFiles:
 
     def __init__(self, cfg: Config, folder: Path):
         self.cfg = cfg
-        if folder.is_absolute():
-            self.folder = folder
-        else:
-            self.folder = cfg.save_dir / folder
+
+        # Step 1: Get project root (adjust depth as needed)
+        project_root = Path(__file__).resolve().parents[2]
+
+        # Step 2: Resolve save_dir relative to project root
+        save_dir = Path(cfg.save_dir)
+        if not save_dir.is_absolute():
+            save_dir = (project_root / save_dir).resolve()
+
+        self.folder = save_dir / folder
+
 
     def mkdir(self, mode=0o777):
         # Like POSIX 'mkdir -p'
