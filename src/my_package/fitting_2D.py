@@ -583,7 +583,9 @@ def gdsc_peakFit(source_input, runLoop, fiji_directory, root_directory, config_n
                                                                                 psf_parameter_1, precision_method, relative_threshold, absolute_threshold,
                                                                                 parameter_relative_threshold, parameter_absolute_threshold, max_iterations, lambdaa,
                                                                                 image_scale, image_size, image_pixel_size)
-        
+            else:
+                logging.error(f"cannot loop over a file. ensure runLoop is False or source_input is a directory")
+                return None
         except Exception as e:
             logging.error(f"An error occurred in peak fitting pipeline: {e}")
             return None
