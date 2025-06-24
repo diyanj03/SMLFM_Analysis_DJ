@@ -79,7 +79,7 @@ def numTracks(input_dir):
         if file.endswith('positionsFramesIntensity.csv'):
             df = pd.read_csv(os.path.join(input_dir, file), low_memory=False)
             numtracks = len(df)
-            dataset_name = file.split('_locs3D_cropped_positionsFramesIntensity.csv')[0]
+            dataset_name = file.split('_positionsFramesIntensity.csv')[0]
             df_tracks[dataset_name] = numtracks
 
     return df_tracks
@@ -94,7 +94,7 @@ def perfConf(matlab_results_dir):
     
     df = pd.read_csv(perfovstats_filepath)
     confPerc_list = df['confPerc'].fillna(0).where(df['confPerc'] >= 0, 0)
-    sample_list_editted = df['originDataset'].str.replace('_locs3D_cropped_trackPositions.csv', '', regex=False)
+    sample_list_editted = df['originDataset'].str.replace('_trackPositions.csv', '', regex=False)
     confPerc_list = confPerc_list[confPerc_list.notna() & (confPerc_list >= 0)].tolist()
     
     dict_confPerc = dict(zip(sample_list_editted, confPerc_list))
