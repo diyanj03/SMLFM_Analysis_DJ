@@ -108,7 +108,7 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
     Args:
         sample_name (str): Name of the sample for labeling the summary.
         root_directory (str): Path to root_directory to read the data folders and saving the summary stats.
-        matlab_results_dir (str, optional): Directory containing MATLAB results.
+        matlab_results_dir (str, optional): Directory containing MATLAB results to include % trajs confined in summary
         custom_data_dir (str, optional): replaces 'root_dir/data' with custom directory path containing the '2D_locs_csv', 'formatted_3Dlocs', 'cropped_3Dlocs', 'tracks' folders for the given sample.  
     Returns:
         str: Path to the generated summary CSV file.
