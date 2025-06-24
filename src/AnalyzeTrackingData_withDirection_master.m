@@ -56,9 +56,9 @@ classdef AnalyzeTrackingData_withDirection_master<handle
             'confined',[],...
             'unconfined',[]); % get axes limits for inspection of trajectories
         %
-        colors = struct('confined',[0, 0.447058823529412, 0.741176470588235],... rgb(0, 114, 189)
-            'unconfined',[0.85, 0.33, 0.1]) % 20ms  rgb(216, 84, 26)
-        % 'unconfined',[0.30, 0.75, 0.93]) % 500ms
+        colors = struct('confined', [0, 0.4471, 0.7412], 'unconfined', [0.30, 0.75, 0.93]); % 500ms rgb(77, 191, 237)
+        % colors = struct('confined', [0, 0.4471, 0.7412], 'unconfined', [0.85, 0.33, 0.1]); % 20ms rgb(216, 84, 26)
+
     end
 
     methods
