@@ -7,10 +7,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import json
 import copy
 import os
-from my_package import fitting_3D  
+from lfm_spt_py import fitting_3D  
 import sys 
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'my_package')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lfm_spt_py')))
 
 def optimise_MLA_alignment(root_dir, search_space, locs2D_path, base_configName, n_calls=200, n_initial_points=20):
     """

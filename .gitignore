@@ -11,17 +11,17 @@ src/*
 !src/main.ipynb
 !src/AnalyzeTrackingData_withDirection_master.m
 
-# Allow everything under src/my_package/
-!src/my_package/
-!src/my_package/**
+# Allow everything under src/lfm_spt_py/
+!src/lfm_spt_py/
+!src/lfm_spt_py/**
 
-# Ignore Python cache and compiled files within src/my_package/ and its subdirectories (like smlfm)
-src/my_package/__pycache__/
-src/my_package/__pycache__/**
-src/my_package/**/__pycache__/
-src/my_package/**/*.pyc
-src/my_package/**/*.pyo
-src/my_package/**/*.pyd
+# Ignore Python cache and compiled files within src/lfm_spt_py/ and its subdirectories (like smlfm)
+src/lfm_spt_py/__pycache__/
+src/lfm_spt_py/__pycache__/**
+src/lfm_spt_py/**/__pycache__/
+src/lfm_spt_py/**/*.pyc
+src/lfm_spt_py/**/*.pyo
+src/lfm_spt_py/**/*.pyd
 
 # Allow specific files in configs/
 !configs/

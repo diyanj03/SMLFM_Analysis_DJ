@@ -6,7 +6,7 @@ def sm_tracking(root_dir, data_dir=None):
     if data_dir is None:
         data_dir = os.path.join(root_dir, 'data','cropped_3Dlocs')
 
-    trajectory_analysis_path = os.path.join(root_dir, 'src', 'my_package', 'trajectoryAnalysis.py')
+    trajectory_analysis_path = os.path.join(root_dir, 'src', 'lfm_spt_py', 'trajectoryAnalysis.py')
     command = [
         "py",
         trajectory_analysis_path,
