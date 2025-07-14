@@ -102,6 +102,45 @@ def perfConf(matlab_results_dir):
     return dict_confPerc
 
 
+
+
+def diffConst(matlab_results_dir):
+    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'diffusionConst')
+    
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"File not found: {csv_path}")
+    
+    df = pd.read_csv(csv_path)
+
+    avg_diffConst_dict = {}
+
+    for x in (df['originDataset']).unique():
+        df_perfov = df[df['originDataset'] == x]
+        dataset_name = x.replace('_trackPositions.csv', '')
+        avg_diffConst_dict[dataset_name] = np.mean(df_perfov['diffConst'])
+
+    return avg_diffConst_dict
+
+
+def anomalous_exp(matlab_results_dir):
+    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'alpha')
+    
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"File not found: {csv_path}")
+    
+    df = pd.read_csv(csv_path)
+
+    avg_alpha_dict = {}
+
+    for x in (df['originDataset']).unique():
+        df_perfov = df[df['originDataset'] == x]
+        dataset_name = x.replace('_trackPositions.csv', '')
+        avg_alpha_dict[dataset_name] = np.mean(df_perfov['alpha'])
+
+    return avg_alpha_dict
+
+
+
 def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_dir=None):
     """ 
     Compiles statistics (number of 2D locs, 3D locs, tracks, confPerc) per dataset into a summary CSV file.
@@ -133,7 +172,9 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
             'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
             'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
             'numTracks': numTracks(tracks_dir),
-            'confPerc': perfConf(matlab_results_dir)
+            'confPerc': perfConf(matlab_results_dir),
+            'diffusionConst (all)': diffConst(matlab_results_dir),
+            'alpha (all)': anomalous_exp(matlab_results_dir)
         }).T
     else: 
         df = pd.DataFrame({

@@ -100,7 +100,7 @@ def extract_counts(tracks_dict):
     return counts_dict
 
 
-def compute_keffs(counts_dict):
+def compute_keffs(counts_dict, plot_log_log):
     """
     Input raw counts for each timelapse interval for calculating keffs.
     Args:
@@ -117,93 +117,53 @@ def compute_keffs(counts_dict):
     # exponential decay to fit data and model k_eff 
     def exp_decay(x, A, k_eff):
         return A * np.exp(-k_eff * x)
-    
+   
     fig, ax = plt.subplots()
 
     for tau_tl, value in counts_dict.items():
         counts = value[0]
-        if isinstance(counts, list):
-            counts = np.array(counts, dtype=np.int64)
+        total_counts = np.sum(counts)
+
         actual_x = np.arange(1, len(counts)+0.01, 1) * tau_tl
         fit_x = np.linspace(min(actual_x), max(actual_x), 200)
         
-        # guessing initial A and k_eff using log transform fit
         valid = counts > 0
         actual_x_valid = actual_x[valid]
-        counts_valid = counts[valid]
-        log_counts = np.log(counts_valid)
-        slope, intercept = np.polyfit(actual_x_valid, log_counts, 1)
-        k_eff_guess = -slope
-        A_guess = np.exp(intercept)
-        p0 = [A_guess, k_eff_guess]
-
-        # non linear LSE
-        popt, pcov = curve_fit(exp_decay, actual_x, counts, p0=p0)
-        
-        A_fit, k_eff_fit = popt
-
-        perr = np.sqrt(np.diag(pcov))  # standard errors
-        A_err, k_eff_err = perr
-
-        ci = compute_all_CI(popt, pcov, len(counts))
-
-        keff_dict[tau_tl] = (A_fit, k_eff_fit, ci[1], k_eff_err)
-
-        scatter = ax.scatter(actual_x, counts, label=f'{tau_tl}s data')
-        label = rf"{tau_tl}s fit"
-        line, = ax.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-                         label = label,
-                         color = scatter.get_facecolors()[0])
-        
-    
-    ax.set_xscale('log')
-    ax.grid(which='both', linestyle='--', linewidth=0.5)
-    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
-    ax.set_ylabel("raw occurence")
-    ax.legend()
-
-    # surviving fraction instead of raw counts
-    fig2, ax2 = plt.subplots()
-
-    for tau_tl, value in counts_dict.items():
-        counts = value[0]
-        total_counts = np.sum(counts)
-        perc_surviving = counts / total_counts
-
-        actual_x = np.arange(1, len(counts)+0.01, 1) * tau_tl
-        fit_x = np.linspace(min(actual_x), max(actual_x), 200)
-        
-        valid = perc_surviving > 0
-        actual_x_valid = actual_x[valid]
-        perc_valid = perc_surviving[valid]
+        perc_valid = counts[valid]
         log_perc = np.log(perc_valid)
+        
         slope, intercept = np.polyfit(actual_x_valid, log_perc, 1)
         k_eff_guess = -slope
         A_guess = np.exp(intercept)
         p0 = [A_guess, k_eff_guess]
 
-        popt, pcov = curve_fit(exp_decay, actual_x, perc_surviving, p0=p0)
+        popt, pcov = curve_fit(exp_decay, actual_x, counts, p0=p0)
         A_fit, k_eff_fit = popt
         perr = np.sqrt(np.diag(pcov))
         A_err, k_eff_err = perr
+        ci = compute_all_CI(popt, pcov, len(counts))
 
-        scatter = ax2.scatter(actual_x, perc_surviving, label=f'{tau_tl}s data')
+        keff_dict[tau_tl] = (A_fit, k_eff_fit, ci[1], k_eff_err)
+        
+        perc_surviving = counts / total_counts
+        scatter = ax.scatter(actual_x, perc_surviving, label=f'{tau_tl}s data',zorder=2)
         
         label = rf"{tau_tl}s fit"
 
-        ax2.plot(fit_x, exp_decay(fit_x, A_fit, k_eff_fit),
-                label = label,
-                color=scatter.get_facecolors()[0])
+        y_fit = exp_decay(fit_x, A_fit, k_eff_fit) / total_counts
+        ax.plot(fit_x, y_fit, label = label, color=scatter.get_facecolors()[0], zorder=1)
 
-    ax2.set_xscale('log')
-    ax2.grid(which='both', linestyle='--', linewidth=0.5)
-    ax2.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
-    ax2.set_ylabel("fraction surviving")
-    ax2.set_title('single-exp keff fit')
-    ax2.legend()
+    if plot_log_log:
+        ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_axisbelow(True)
+    ax.grid(which='both', linestyle='--', linewidth=0.5, zorder = 0)
+    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
+    ax.set_ylabel("fraction surviving")
+    ax.set_title('single-exp keff fit')
+    ax.legend()
 
-
-    return keff_dict, fig, fig2
+    return keff_dict, fig
 
 def compute_koff(keff_dict, tau_int):
     """
@@ -265,13 +225,15 @@ def compute_koff(keff_dict, tau_int):
     ax.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
     current_ylim = ax.get_ylim()
     ax.set_ylim(bottom=0, top=current_ylim[1])
-    ax.grid(zorder=0)
+    ax.set_axisbelow(True)
+    ax.grid(True, zorder=0)
+
     ax.legend(handles=[data_handle, fit_handle])
 
     return (k_off, k_b), (ci_list[0], ci_list[1], rss), fig
 
 
-def main_sequentialFit(input_dict, tau_int, sample_name, root_directory=None, destination_directory=None):
+def main_sequentialFit(input_dict, tau_int, sample_name, plot_log_log = False, root_directory=None, destination_directory=None):
     """
     Residence time analysis using SPT data from timelapse experiments.
     Individually fits keff values from each timelapse experiment data and then computes photobleaching and dissociation rate.
@@ -309,15 +271,14 @@ def main_sequentialFit(input_dict, tau_int, sample_name, root_directory=None, de
         destination_dir = os.path.join(root_directory, 'results', f'{sample_name}_residenceTimeAnalysis')
         os.makedirs(destination_dir, exist_ok=True)
 
-    keff_dict, expFit_fig1, expFit_fig2 = compute_keffs(counts_dict)
+    keff_dict, expFit_fig = compute_keffs(counts_dict, plot_log_log)
     rates, linFit_metrics, linFit_fig = compute_koff(keff_dict, tau_int)
     
     if destination_directory or root_directory:
     # saving figures
-        exp_fit1_destination = os.path.join(destination_dir, f'singleExp_keff_histFit_rawOccurence.pdf')
-        exp_fit2_destination = os.path.join(destination_dir, f'singleExp_keff_histFit_fracSurviving.pdf' )
-        expFit_fig1.savefig(exp_fit1_destination)
-        expFit_fig2.savefig(exp_fit2_destination)
+        exp_fit_destination = os.path.join(destination_dir, f'singleExp_keff_histFit.pdf' )
+        expFit_fig.savefig(exp_fit_destination)
+
         lin_fit_destination = os.path.join(destination_dir, f'singleExp_koff_kb_linFit.pdf')
         linFit_fig.savefig(lin_fit_destination)
 
@@ -354,7 +315,7 @@ def main_sequentialFit(input_dict, tau_int, sample_name, root_directory=None, de
     print(f'\n')
 
     if root_directory or destination_directory:
-        txt_destination = os.path.join(destination_dir, 'analysisResults_singleExp.txt')
+        txt_destination = os.path.join(destination_dir, 'analysisResults_singleExp_sequentialFit.txt')
         with open(txt_destination, 'w', encoding='utf-8') as file:
             file.write(txt_out)
 
@@ -437,10 +398,15 @@ def get_singleExp_params(counts_dict, tau_int):
             mask = tau_tl == tau
             y[mask] = A_coeffs[i] * np.exp(- (k_b * (tau_int / tau) + k_off) * t[mask])
         return y
-
+    
+    
     # curve_fit
     initial_A_guesses, koff_guess, kb_guess = get_initial_params(counts_dict, tau_int)
     
+    koff_guess = max(koff_guess, 1e-6)
+    kb_guess = max(kb_guess, 1e-6)
+    initial_A_guesses = [max(A, 1e-6) for A in initial_A_guesses]
+
     p0_single = initial_A_guesses + [koff_guess, kb_guess]
     xdata = np.vstack((t_concat, tau_tl_concat))
     ydata = counts_concat
@@ -448,6 +414,7 @@ def get_singleExp_params(counts_dict, tau_int):
     bounds_single = ([0.0] * len(tau_tl_values) + [0.0, 0.0],
                      [np.inf] * len(tau_tl_values) + [np.inf, np.inf])
 
+    
     popt_single, pcov_single = curve_fit(single_exp_decay, xdata, ydata, p0=p0_single, maxfev=10000, bounds=bounds_single)
     
     A_fits_single = popt_single[:len(tau_tl_values)]
@@ -458,7 +425,7 @@ def get_singleExp_params(counts_dict, tau_int):
 
 
 
-def global_singleExp(counts_dict, tau_int, balance_tl_weights):
+def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_log_log):
     
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -533,12 +500,16 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights):
         rate = koff_fit + kb_fit * (tau_int / tau_tl)
         y_fit = A_fits[i] * np.exp(-rate * fit_x) / total_counts
         mask = perc_surv > 0
-        ax.scatter(actual_x[mask], perc_surv[mask], label=f'{tau_tl}s data')
-        ax.plot(fit_x, y_fit, label=f'{tau_tl}s fit')
+        ax.scatter(actual_x[mask], perc_surv[mask], label=f'{tau_tl}s data', zorder=2)
+        ax.plot(fit_x, y_fit, label=f'{tau_tl}s fit', zorder=1)
+    if plot_log_log:
+        ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
     ax.set_ylabel("fraction surviving")
-    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    ax.set_axisbelow(True)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
     ax.legend()
     ax.set_title("single-exp global fit")
     fig.tight_layout()
@@ -552,7 +523,8 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights):
     ax2.plot(fit_x, fit_y, linestyle='--', color='grey', label=f'fit: $k_{{off}}={koff_fit:.3f}$', zorder = 1)
     ax2.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
     ax2.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-    ax2.grid(zorder=0)
+    ax2.set_axisbelow(True)
+    ax2.grid(True, zorder=0)
     ax2.legend()
     fig2.tight_layout()
     
@@ -564,8 +536,120 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights):
         (fig, fig2)
     )
 
+def compute_keffs_perCell_single(tracks_dict):
+    """
+    Args:
+    - tracks_dict: keys represent tau_tl and values represent path to folder containing tracks files for that tau_tl.
 
-def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights):
+    Returns:
+    - results_dict: keys represent tau_tl
+        - value: 
+            - first element: figure/plot of the per cell histogram fits 
+            - second element: list of (keff, keff_err) values 
+            - third element: list of total_counts
+                - e.g. {0.5: (figure, [(keff1, keff_err1), (keff2, keff_err2)], [counts_1, counts_2])}
+    """
+    
+    def singleExp_decay(t, A, k_eff):
+        return A*np.exp(-(k_eff)*t)
+    
+    results_dict = {}
+
+    # global_xtau = []
+    # global_keffxtau = []
+    all_tau_tl = []
+    all_keffs = []
+
+    for tau_tl, tracks_dir in tracks_dict.items():
+        
+        keff_values = []
+        total_counts = []
+
+        fig, ax = plt.subplots()
+
+        for filename in os.listdir(tracks_dir):
+            if not filename.endswith('.csv'):
+                continue
+            file_path = os.path.join(tracks_dir, filename)
+            df = pd.read_csv(file_path, comment = '#')
+            list_lengths = df.iloc[:,1]
+            bins = np.arange(1.5, max(list_lengths) + 0.6, 1)
+
+            counts,_ = np.histogram(list_lengths, bins=bins)
+            counts = np.array(counts)
+            total_count = np.sum(counts)
+
+            x_data = np.arange(tau_tl, tau_tl*len(counts)+0.01, tau_tl)
+            x_fit = np.linspace(min(x_data), max(x_data), 200)
+
+            valid = counts >0
+            x_data_valid = x_data[valid]
+            perc_valid = counts[valid]
+            log_perc = np.log(perc_valid)
+
+            slope, intercept = np.polyfit(x_data_valid, log_perc, 1)
+            k_eff_guess = -slope
+            A_guess = np.exp(intercept)
+            p0 = [A_guess, k_eff_guess]
+
+            
+            popt, pcov = curve_fit(singleExp_decay, x_data, counts, p0=p0)
+            A_fit, k_eff_fit = popt
+            perr = np.sqrt(np.diag(pcov))
+            A_err, k_eff_err = perr
+            _,ci = compute_all_CI(popt, pcov, len(counts))
+
+            perc_surviving = counts / total_count
+
+            # scatter = ax.scatter(x_data, perc_surviving, zorder = 2)
+            y_fit = singleExp_decay(x_fit, A_fit, k_eff_fit) / total_count
+
+            plot = ax.plot(x_fit, y_fit, zorder = 1)
+
+            keff_value = (k_eff_fit, ci)
+            keff_values.append(keff_value)
+            total_counts.append(total_count)
+        
+        ax.set_axisbelow(True)
+        ax.grid(True, zorder=0)
+
+        # ax.set_xscale('log')
+        ax.set_xlabel(r"time (seconds)")
+        ax.set_ylabel("fraction surviving")
+        ax.set_title(f'{tau_tl}s interval - single-exp keff fits per cell')
+        
+        # global_xtau.extend([tau_tl] * len(keff_values))
+        # global_keffxtau.extend([k_eff * tau_tl for k_eff, _ in keff_values])
+        all_tau_tl.extend([tau_tl] * len(keff_values))
+        all_keffs.extend([k_eff for k_eff, _ in keff_values])
+
+        
+        results_dict[tau_tl] = (fig, keff_values, total_counts)
+
+    # fig2, ax_summary = plt.subplots()
+    # ax_summary.scatter(global_xtau, global_keffxtau, alpha=0.6)
+    # ax_summary.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
+    # ax_summary.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
+
+    unique_tau_tl = sorted(set(all_tau_tl))
+    tau_to_pos = {tau: i for i, tau in enumerate(unique_tau_tl)}
+    x_positions = [tau_to_pos[tau] for tau in all_tau_tl]
+
+    fig2, ax_summary = plt.subplots(figsize=(4, 3))
+    ax_summary.scatter(x_positions, all_keffs, alpha=0.6)
+    ax_summary.set_xticks(range(len(unique_tau_tl)))
+    ax_summary.set_xticklabels([str(tau) for tau in unique_tau_tl], rotation=45)
+    ax_summary.set_xlabel('tau_tl (seconds)')
+    ax_summary.set_ylabel('keff')
+
+    left_pad = -0.5
+    right_pad = len(unique_tau_tl) - 0.5
+    ax_summary.set_xlim(left_pad, right_pad)
+
+    return results_dict, fig2
+
+
+def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_log_log):
 
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -653,12 +737,15 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
         rate2 = kb_fit * (tau_int / tau_tl) + koff2_fit
         y_fit = A_fits[i] * (B_fit * np.exp(-rate1 * fit_x) + (1 - B_fit) * np.exp(-rate2 * fit_x)) / total_counts
         mask = perc_surv > 0
-        ax3.scatter(actual_x[mask], perc_surv[mask], label=f'{tau_tl}s data')
-        ax3.plot(fit_x, y_fit, label=f'{tau_tl}s fit')
+        ax3.scatter(actual_x[mask], perc_surv[mask], label=f'{tau_tl}s data', zorder=2)
+        ax3.plot(fit_x, y_fit, label=f'{tau_tl}s fit', zorder=1)
+    if plot_log_log:
+        ax3.set_yscale('log')
     ax3.set_xscale('log')
     ax3.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
     ax3.set_ylabel("fraction surviving")
-    ax3.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax3.set_axisbelow(True)
+    ax3.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
     ax3.legend()
     ax3.set_title("double-exp global fit")
     fig3.tight_layout()
@@ -692,7 +779,8 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
 
     ax4.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
     ax4.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-    ax4.grid(zorder=0)
+    ax4.set_axisbelow(True)
+    ax4.grid(True, zorder=0)
     legend = ax4.legend(handles=all_handles, labels=all_labels, labelspacing=0.4)
 
     for i, label in enumerate(all_labels):
@@ -708,8 +796,112 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
     (fig3, fig4)
     )
 
+def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
+    """
+    Args:
+    - tracks_dict: keys represent tau_tl and values represent path to folder containing tracks files for that tau_tl.
 
-def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, balance_tl_weights=True, root_directory = None, destination_directory=None):
+    Returns:
+    - results_dict: keys represent tau_tl
+        - value: 
+            - first element: figure/plot of the per cell histogram fits 
+            - second element: list of (keff, keff_err) values 
+            - third element: list of total_counts
+                - e.g. {0.5: (figure, [(keff1, keff_err1), (keff2, keff_err2)], [counts_1, counts_2])}
+    """
+    if koff1 > koff2:
+        koff1, koff2 = koff2, koff1
+    
+    def model(tau_tl):
+        keff1 = kb*(tau_int / tau_tl) + koff1
+        keff2 = kb*(tau_int / tau_tl) + koff2
+        def doubleExp_decay(t, A, B):
+            return A*(B*np.exp(-(keff1)*t) + (1-B)*np.exp(-(keff2)*t))
+        return doubleExp_decay
+
+    results_dict = {}
+    all_tau_tl = []
+    all_Bs = []
+
+    for tau_tl, tracks_dir in tracks_dict.items():
+        
+        doubleExp_decay1 = model(tau_tl)
+
+        B_values = []
+        total_counts = []
+
+        fig, ax = plt.subplots()
+
+        for filename in os.listdir(tracks_dir):
+            if not filename.endswith('.csv'):
+                continue
+            file_path = os.path.join(tracks_dir, filename)
+            df = pd.read_csv(file_path, comment = '#')
+            list_lengths = df.iloc[:,1]
+            bins = np.arange(1.5, max(list_lengths) + 0.6, 1)
+
+            counts,_ = np.histogram(list_lengths, bins=bins)
+            counts = np.array(counts)
+            total_count = np.sum(counts)
+
+            x_data = np.arange(tau_tl, tau_tl*len(counts)+0.01, tau_tl)
+            x_fit = np.linspace(min(x_data), max(x_data), 200)
+
+            p0 = [1, 0.5]
+            
+            popt, pcov = curve_fit(
+                doubleExp_decay1,
+                x_data,
+                counts,
+                p0=p0,
+                bounds=([0, 0.0], [np.inf, 1.0]),
+                maxfev=10000  # also add this to avoid convergence issues
+                )
+            A_fit, B_fit = popt
+            perr = np.sqrt(np.diag(pcov))
+            A_err, B_err = perr
+            _,ci = compute_all_CI(popt, pcov, len(counts))
+
+            # perc_surviving = counts / total_count
+            # scatter = ax.scatter(x_data, perc_surviving, zorder = 2)
+            y_fit = doubleExp_decay1(x_fit, A_fit, B_fit) / total_count
+            plot = ax.plot(x_fit, y_fit, zorder = 1)
+
+            B_value = (B_fit, ci)
+            B_values.append(B_value)
+            total_counts.append(total_count)
+        
+        ax.set_axisbelow(True)
+        ax.grid(True, zorder=0)
+        ax.set_xscale('log')
+        ax.set_xlabel(r"time (seconds)")
+        ax.set_ylabel("fraction surviving")
+        ax.set_title(f'{tau_tl} - double-exp fits per cell')
+        
+        all_tau_tl.extend([tau_tl] * len(B_values))
+        all_Bs.extend([k_eff for k_eff, _ in B_values])
+
+        results_dict[tau_tl] = (fig, B_values, total_counts)
+    
+    unique_tau_tl = sorted(set(all_tau_tl))
+    tau_to_pos = {tau: i for i, tau in enumerate(unique_tau_tl)}
+    x_positions = [tau_to_pos[tau] for tau in all_tau_tl]
+
+    fig2, ax_summary = plt.subplots(figsize=(4, 3))
+    ax_summary.boxplot(all_Bs, positions=[1], widths=0.4)
+    ax_summary.scatter(np.random.normal(1, 0.05, size=len(all_Bs)), all_Bs, alpha=0.6, s=10)
+
+    ax_summary.set_xlim(0.5, 1.5)
+    ax_summary.set_ylabel('fraction of long-lived population (B)')
+    ax_summary.grid(True, axis='y', linestyle='--', alpha=0.5)
+
+
+    return results_dict, fig2
+
+
+
+
+def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, plot_log_log=False, balance_tl_weights=True, root_directory = None, destination_directory=None):
     """
     Residence time analysis using SPT data from timelapse experiments.
     Performs a global single and double exponential fit to estimate kinetics parameters directly.
@@ -722,6 +914,7 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     - balance_tl_weights (boolean): to equalise the influence of each tau_tl group in the fit.
     - root_directory (str, optional)
     - destination_directory (str, optional)
+    - plot_log_log (bool, optional): whether to plot the hist fit in log-log scale.
 
     Outputs:
     - PDF plots
@@ -731,18 +924,19 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
 
     if isinstance(first_val, str):
         counts_dict = extract_counts(input_dict)
+        compute_single_cell_fits = True
     elif (
         isinstance(first_val, tuple) and 
         len(first_val) == 3 and 
         isinstance(first_val[0], (list, np.ndarray))
     ):
         counts_dict = input_dict
+        compute_single_cell_fits = False
     else:
         raise ValueError("Unknown input_dict format")
 
-
-    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),(fig, fig2) = global_singleExp(counts_dict, tau_int, balance_tl_weights)
-    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), (fig3, fig4) = global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights)
+    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),(fig, fig2) = global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_log_log)
+    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), (fig3, fig4) = global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_log_log)
 
     # save figures
     if destination_directory:
@@ -812,10 +1006,171 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
 
     print(f"\nsingleExp A values = " + ", ".join([str(A_fits_s[0])] + [str(round(v)) for v in A_fits_s[1:]]))
     print(f"\ndoubleExp A values = " + ", ".join([str(A_fits_d[0])] + [str(round(v)) for v in A_fits_d[1:]]))
+    print('\n')
 
     # save .txt
     if root_directory or destination_directory:
         txt_destination = os.path.join(destination_dir, 'analysisResults_globalFits.txt')
         with open(txt_destination, 'w', encoding = 'utf-8') as f:
             f.write(txt_out)
+
+    # single cell analysis
+    if compute_single_cell_fits:
+        if bic_s < bic_d:
+            results_dict, figures2 = compute_keffs_perCell_single(input_dict)
+            if destination_directory or root_directory:
+                per_cell_dest = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits')
+                os.makedirs(per_cell_dest, exist_ok=True)
+                fig_dest = os.path.join(per_cell_dest, f'keffs_perCell_plot.pdf')
+                figures2.savefig(fig_dest)
+            
+            for tau_tl, (figures1,_,_) in results_dict.items():
+                if root_directory or destination_directory:
+                    figures1_dest = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits', f'{tau_tl}_histFits.pdf')
+                    figures1.savefig(figures1_dest)
+            txt_output = f"=== Fitting individual cells of {sample_name} to a single exp decay - Results ===\n"
+    
+            for tau_tl, (figure, keff_list, total_count_list) in results_dict.items():
+                txt_output += f"\nTimelapse interval = {tau_tl}:\n"
+                for idx, ((keff, ci), total_count) in enumerate(zip(keff_list, total_count_list)):
+                    txt_output += f"    - Cell {idx+1}:\n"
+                    txt_output += f"        - total counts/tracks = {total_count}\n"
+                    hw_ci = compute_half_width_ci(ci)
+                    txt_output += f"        - k_eff = {keff:.4f} ± {hw_ci:.4f} s⁻¹\n"
+
+            # print(txt_output)
+            if root_directory or destination_directory:
+                txt_destination = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits', f'analysisResults_perCell_fits')
+                with open(txt_destination, 'w', encoding='utf-8') as file:
+                    file.write(txt_output)
+
+        else: # double exp single cell fits
+            results_dict, figures2 = compute_keffs_perCell_double(tracks_dict=input_dict, koff1=koff1_fit_d, koff2=koff2_fit_d, kb=kb_fit_d, tau_int=tau_int)
+            if destination_directory or root_directory:
+                per_cell_dest = os.path.join(destination_dir, 'perCell - doubleExp_histFits')
+                os.makedirs(per_cell_dest, exist_ok=True)
+                fig2_dest = os.path.join(per_cell_dest,f'Bvalue_perCell_plot.pdf')
+                figures2.savefig(fig2_dest)
+            
+            for tau_tl, (figures1,_,_) in results_dict.items():
+                if root_directory or destination_directory:
+                    figures1_dest = os.path.join(destination_dir, 'perCell - doubleExp_histFits', f'{tau_tl}_histFits.pdf')
+                    figures1.savefig(figures1_dest)
+            txt_output = f"=== Fitting individual cells of {sample_name} to a double exp decay - Results ===\n"
+            txt_output = f"\nAssumes the residence time of the two populations, {(1/koff1_fit_d):.1f}s and {(1/koff1_fit_d):.1f}s, are constant across all cells.\n"
+            txt_output = f"Only the fraction between the populations varies:\n"
+
+    
+            for tau_tl, (figure, B_list, total_count_list) in results_dict.items():
+                txt_output += f"\nTimelapse interval = {tau_tl}s:\n"
+                for idx, ((B_val, ci), total_count) in enumerate(zip(B_list, total_count_list)):
+                    txt_output += f"    - Cell {idx+1}:\n"
+                    txt_output += f"        - total counts/tracks = {total_count}\n"
+                    hw_ci = compute_half_width_ci(ci)
+                    txt_output += f"        - percentage of long-lived population = {(B_val*100):.1f} ± {(hw_ci*100):.1f} s⁻¹\n"
+
+            # print(txt_output)
+            if root_directory or destination_directory:
+                txt_destination = os.path.join(destination_dir, 'perCell - doubleExp_histFits', f'analysisResults_perCell_fits')
+                with open(txt_destination, 'w', encoding='utf-8') as file:
+                    file.write(txt_output)
+
+
+def plot_residenceTimes(rt_dict, annotate_data = True, title=None):
+    """
+    Args: 
+    - rt_dict:
+        - key: string representing sample name
+        - value: two or three element tuple
+            - element 1: single residence time float or tuple of two residence times
+            - element 2: single float of half width confidence interval or two values if two residence times.
+            - element 3: if two residence times: include the fraction of the first residence time.
+
+    - title (str, optional): title of plot if needed
+
+    - example_dict_input: 
+    rt_dict = {
+    'sample_1': (15, 2, 100), 
+    'sample_2': ((3,17), (0.4,3), 30),
+    }
+    """
+    samples = rt_dict.keys()
+    sample_positions = np.arange(0.5, len(samples), 1)
+
+    numSamples = len(rt_dict.keys())
+    width = 2 + np.sqrt(numSamples) * 1.5
+    fig, ax = plt.subplots(figsize=(width, 4.5))
+    marker_size = 50  # constant size for all points
+
+    for idx, (key, value) in enumerate(rt_dict.items()):
+        if isinstance(value[0], tuple) and len(value[0])==2:
+            res_times = value[0]
+            errs = value[1]
+            frac = value[2]
+            for k in range(2):
+                ax.errorbar(
+                sample_positions[idx],
+                res_times[k],
+                yerr=errs[k],
+                fmt='o',
+                markersize=marker_size ** 0.5,
+                color='gray',
+                ecolor='gray',
+                elinewidth=1.5,
+                capsize=4
+                )
+
+                if annotate_data:
+                    # fraction annotation
+                    frac1 = frac if k==0 else (100-frac)
+                    frac1 = round(frac1, 1) 
+                    ax.text(
+                        sample_positions[idx] + 0.1, # x offset
+                        res_times[k], # same y position as datapoint            
+                        str(frac1)+'%',             
+                        verticalalignment='center',
+                        fontsize=8,
+                        color='black'
+                    )
+        else: 
+            res_time = value[0]
+            err = value[1]
+            ax.errorbar(
+                sample_positions[idx],
+                res_time,
+                yerr=err,
+                fmt='o',
+                markersize=marker_size ** 0.5,
+                color='gray',
+                ecolor='gray',
+                elinewidth=1.5,
+                capsize=4
+                )
+            if annotate_data:
+                frac = 100
+                ax.text(
+                    sample_positions[idx] + 0.1, # x offset
+                    res_time, # same y position as datapoint            
+                    str(frac)+'%',             
+                    verticalalignment='center',
+                    fontsize=8,
+                    color='black'
+                )
+    
+    ax.set_xticks(sample_positions)
+    ax.set_xticklabels(samples)
+    if title:
+        ax.set_title(title)
+    ax.set_ylabel('Residence Time (s)')
+
+    if annotate_data:
+        ax.set_xlim(sample_positions[0] - 0.5, sample_positions[-1] + 0.8)
+    else:
+        ax.set_xlim(sample_positions[0] - 0.5, sample_positions[-1] + 0.5)
+    ymin, ymax = ax.get_ylim()
+    ax.set_ylim(0, ymax)
+    plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+
+    plt.tight_layout()
+    plt.show()
 
