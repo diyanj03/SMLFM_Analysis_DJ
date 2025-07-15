@@ -105,7 +105,7 @@ def perfConf(matlab_results_dir):
 
 
 def diffConst(matlab_results_dir):
-    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'diffusionConst')
+    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'diffusionConst.csv')
     
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"File not found: {csv_path}")
@@ -123,7 +123,7 @@ def diffConst(matlab_results_dir):
 
 
 def anomalous_exp(matlab_results_dir):
-    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'alpha')
+    csv_path = os.path.join(matlab_results_dir, 'AllTrajectories', 'alpha.csv')
     
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"File not found: {csv_path}")
