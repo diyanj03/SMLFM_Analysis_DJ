@@ -117,7 +117,7 @@ def diffConst(matlab_results_dir):
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
         dataset_name = x.replace('_trackPositions.csv', '')
-        avg_diffConst_dict[dataset_name] = np.mean(df_perfov['diffConst'])
+        avg_diffConst_dict[dataset_name] = np.mean(df_perfov['diffusionConst'])
 
     return avg_diffConst_dict
 
