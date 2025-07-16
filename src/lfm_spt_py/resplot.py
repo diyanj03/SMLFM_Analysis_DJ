@@ -874,7 +874,7 @@ def perFOV_jitter_multi_sx(results_dir_list, parameter, sample_labels, destinati
         prepped_all['distribution_lists'],
         prepped_all['sample_labels'],
         prepped_all['xs'],
-        prepped_data['y_var'],
+        prepped_all['y_var'],
         annotation_result_all['annotations'],
         prepped_all['parameter'],
         prepped_all['segmentation_state'],
