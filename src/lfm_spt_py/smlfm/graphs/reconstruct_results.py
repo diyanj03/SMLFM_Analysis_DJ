@@ -43,6 +43,9 @@ def reconstruct_results(fig1: Figure, fig2: Figure, fig3: Figure,
     view_count = locs_3d[:, 5]  # Number of views used to fit the localisation
     photons = locs_3d[:, 6]  # Number of photons in fit
     # frames = locs_3d[:, 7]  # Frames
+    mean_axial_err = np.mean(axial_err)
+    mean_lateral_err = np.mean(lateral_err)
+    mean_photons_perFit = np.mean(photons)
 
     keep = np.logical_and(
         (lateral_err < max_lateral_err) if max_lateral_err is not None else True,
@@ -52,4 +55,4 @@ def reconstruct_results(fig1: Figure, fig2: Figure, fig3: Figure,
     draw_histogram(fig2, photons[keep], axial_err[keep])
     draw_3d_locs(fig3, xyz[keep])
 
-    return fig1, fig2, fig3
+    return fig1, fig2, fig3, [mean_lateral_err,mean_axial_err,mean_photons_perFit]
