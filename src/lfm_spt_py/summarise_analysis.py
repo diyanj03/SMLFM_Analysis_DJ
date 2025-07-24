@@ -5,6 +5,7 @@ from scipy.stats import pearsonr
 import os
 import numpy as np
 from matplotlib import cm
+import smlfm.graphs as graphs
 
 
 
@@ -69,6 +70,34 @@ def num3D_cropped_locs(input_dir):
     return df_3d_locs
 
 
+def mean_precision(input_dir):
+    def get_precision(results_folder, max_lat_err=200, min_views=3):
+        locs_3d_path = os.path.join(results_folder, 'locs3D.csv')
+        locs_3d_data = np.genfromtxt(locs_3d_path, delimiter=',')
+        mean_lat_err, mean_ax_err = graphs.get_precision(
+            locs_3d_data,
+            max_lat_err,
+            min_views
+        )
+        return mean_lat_err, mean_ax_err
+
+    df_latPrecision = {}
+    df_axPrecision = {}
+    if not os.path.exists(input_dir):
+        print(f"[Warning] 3D_fitting_results dir not found. cannot output precisions.")
+        return None
+    
+    for foldername in os.listdir(input_dir):
+        datasetName = foldername
+        results_folder = os.path.join(input_dir, foldername)
+        lat_err, ax_err = get_precision(results_folder)
+        df_latPrecision[datasetName] = lat_err
+        df_axPrecision[datasetName] = ax_err
+
+    return df_latPrecision, df_axPrecision
+
+
+
 def numTracks(input_dir):
     df_tracks = {}
     if not os.path.exists(input_dir):
@@ -100,7 +129,6 @@ def perfConf(matlab_results_dir):
     dict_confPerc = dict(zip(sample_list_editted, confPerc_list))
 
     return dict_confPerc
-
 
 
 
@@ -140,7 +168,6 @@ def anomalous_exp(matlab_results_dir):
     return avg_alpha_dict
 
 
-
 def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_dir=None, only_matlab=False):
     """ 
     Compiles statistics (number of 2D locs, 3D locs, tracks, confPerc) per dataset into a summary CSV file.
@@ -148,31 +175,37 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
         sample_name (str): Name of the sample for labeling the summary.
         root_directory (str): Path to root_directory to read the data folders and saving the summary stats.
         matlab_results_dir (str, optional): Directory containing MATLAB results to include % trajs confined in summary
-        custom_data_dir (str, optional): replaces 'root_dir/data' with custom directory path containing the '2D_locs_csv', 'formatted_3Dlocs', 'cropped_3Dlocs', 'tracks' folders for the given sample.  
+        custom_data_dir (str, optional): replaces 'root_dir/data' with custom directory path containing the '2D_locs_csv', '3D_fitting_results', 'formatted_3Dlocs', 'cropped_3Dlocs', 'tracks' folders for the given sample.  
         only_matlab (bool, optional): set to True if no data dir input, just confPerc, diffusionConst and alpha.
     Returns:
         str: Path to the generated summary CSV file.
     """
     if not only_matlab:
         if custom_dir:
-            print(f'Reading subfolders, "2D_locs_csv","formatted_3Dlocs","cropped_3Dlocs","tracks", within the custom directory as provided to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
+            print(f'Reading subfolders, "2D_locs_csv", "3D_fitting_results", "formatted_3Dlocs","cropped_3Dlocs","tracks", within the custom directory as provided to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
             locs2D_dir = os.path.join(custom_dir,'2D_locs_csv')
             fm_3Dlocs_dir = os.path.join(custom_dir,'formatted_3Dlocs')
             cropped_3Dlocs_dir = os.path.join(custom_dir, 'cropped_3Dlocs')
             tracks_dir = os.path.join(custom_dir, 'tracks')
+            fitting3D_dir = os.path.join(custom_dir, '3D_fitting_results')
         else:
-            print(f'Reading subfolders, "2D_locs_csv","formatted_3Dlocs","cropped_3Dlocs","tracks", within the "../data" directory to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
+            print(f'Reading subfolders, "2D_locs_csv","3D_fitting_results", "formatted_3Dlocs","cropped_3Dlocs","tracks", within the "../data" directory to generate analysis summary stats...\n(note: ensure the mentioned subfolders all contain datasets only corresponding to "{sample_name}")')
             locs2D_dir = os.path.join(root_directory, 'data', '2D_locs_csv')
             fm_3Dlocs_dir = os.path.join(root_directory, 'data', 'formatted_3Dlocs')
             cropped_3Dlocs_dir = os.path.join(root_directory, 'data', 'cropped_3Dlocs')
             tracks_dir = os.path.join(root_directory, 'data', 'tracks')
+            fitting3D_dir = os.path.join(root_directory, '3D_fitting_results')
+
+
 
         if matlab_results_dir:
             df = pd.DataFrame({
                 'numFrames': numFrames(locs2D_dir),
                 'num_2Dlocs': num2D_locs(locs2D_dir),
+                'mean_lateralPrecision': mean_precision(fitting3D_dir)[0],
                 'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
                 'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
+                'mean_axialPrecision': mean_precision(fitting3D_dir)[1],
                 'numTracks': numTracks(tracks_dir),
                 'confPerc': perfConf(matlab_results_dir),
                 'diffusionConst (all)': diffConst(matlab_results_dir),
@@ -182,7 +215,9 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
             df = pd.DataFrame({
                 'numFrames': numFrames(locs2D_dir),
                 'num_2Dlocs': num2D_locs(locs2D_dir),
+                'mean_lateralPrecision': mean_precision(fitting3D_dir)[0],
                 'num_raw3Dlocs': num3D_raw_locs(fm_3Dlocs_dir),
+                'mean_axialPrecision': mean_precision(fitting3D_dir)[1],
                 'num_cropped3Dlocs': num3D_cropped_locs(cropped_3Dlocs_dir),
                 'numTracks': numTracks(tracks_dir),
             }).T
@@ -204,6 +239,9 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
         os.makedirs(destination_dir, exist_ok=True)
         csv_destination_path = os.path.join(destination_dir, f'{sample_name}_stats.csv')
         df.to_csv(csv_destination_path)
+
+        mean_lat_precision = np.mean(df['mean_lateralPrecision'])
+        mean_ax_precision = np.mean(df['mean_axialPrecision'])
 
         # Per-frame and filtered stats
         valid_2D = df.dropna(subset=['numFrames', 'num_2Dlocs'])
@@ -237,12 +275,14 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
             f.write(f">> Number of 2D localisations:\n")
             f.write(f"Mean: {mean_2Dlocs:.2f}\n")
             f.write(f"Standard Deviation: {std_2Dlocs:.2f}\n")
-            f.write(f"Per frame mean: {mean_2Dlocs_pf:.2f}\nPer frame Std: {std_2Dlocs_pf:.2f}\n\n")
+            f.write(f"Per frame mean: {mean_2Dlocs_pf:.2f}\nPer frame Std: {std_2Dlocs_pf:.2f}\n")
+            f.write(f"Mean lateral precision (nm): {mean_lat_precision}\n\n")
 
             f.write(f">> Number of raw 3D localisations:\n")
             f.write(f"Mean: {mean_raw3D:.2f}\n")
             f.write(f"Standard Deviation: {std_raw3D:.2f}\n")
-            f.write(f"Per frame mean: {mean_raw3D_pf:.2f}\nPer frame Std: {std_raw3D_pf:.2f}\n\n")
+            f.write(f"Per frame mean: {mean_raw3D_pf:.2f}\nPer frame Std: {std_raw3D_pf:.2f}\n")
+            f.write(f"Mean axial precision (nm): {mean_ax_precision}\n\n")
 
             f.write(f">> Number of cropped 3D localisations:\n")
             f.write(f"Mean: {mean_crop3D:.2f}\n")
@@ -308,17 +348,16 @@ def correlation_analysis(stats_csv_path, sample_name, root_directory, rgb=(0.5, 
     plt.show()
 
 
-def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None):
+def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None, ylim_min=None):
     """
     Args:
-    - root_directory: path to root_dir
     - csv_list (list of str): list of paths to the summary stats file generated by compile stats.
     - sample_labels (list of str): labels for each sample in the same order as list_csv_paths.
-    - destination_dir (str): directory where the plot and stats summary will be saved.
+    - root_directory: path to root_dir
     - rgb_list (list of tuples): optional list of RGB color codes for each dataset in the same order as list_csv_paths.
     """
     print(f'Generating perFOV distributions of data analysis properties: 2Dlocs, 3Dlocs, numTracks...')
-    for column_heading in ['num_2Dlocs_perframe', 'num_raw3Dlocs_perframe', 'num_cropped3Dlocs_perframe', 'numTracks_perframe']:
+    for column_heading in ['num_2Dlocs_perframe', 'num_raw3Dlocs_perframe', 'num_cropped3Dlocs_perframe', 'numTracks_perframe', 'mean_axialPrecision', 'mean_lateralPrecision']:
         distribution_lists = []
         for path in (csv_list):
             distribution_lists.append(pd.read_csv(path)[column_heading].dropna().tolist())
@@ -360,6 +399,13 @@ def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None)
             for x, val, clevel in zip(xs, distribution_lists, clevels):
                 plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
         
+        all_values = np.concatenate(distribution_lists)
+        padding = 0.1 * (np.max(all_values) - np.min(all_values))
+        lower_limit = ylim_min if ylim_min is not None else np.min(all_values) - padding
+        upper_limit = np.max(all_values) + padding
+
+        plt.ylim(lower_limit, upper_limit)
+
         destination_dir = os.path.join(root_directory,'results', '_'.join(sample_labels) + '_perFOV_results')
 
         os.makedirs(destination_dir, exist_ok=True)
@@ -385,6 +431,4 @@ def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None)
             fileHandle.write("\n")
 
     print(f'Successfully saved perFOV analysis params to "../results/{'_'.join(sample_labels)}_perFOV_results/analysisParams" folder.\n')
-
-
 

@@ -6,6 +6,7 @@ from .draw_locs_normalised import draw_locs_normalised
 from .draw_mla import draw_mla
 from .draw_occurrences import draw_occurrences
 from .reconstruct_results import reconstruct_results
+from .get_precision import get_precision
 
 __all__ = [
     "draw_3d_locs",
@@ -16,4 +17,5 @@ __all__ = [
     "draw_mla",
     "draw_occurrences",
     "reconstruct_results",
+    "get_precision"
 ]
