@@ -355,19 +355,32 @@ def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None,
     - sample_labels (list of str): labels for each sample in the same order as list_csv_paths.
     - root_directory: path to root_dir
     - rgb_list (list of tuples): optional list of RGB color codes for each dataset in the same order as list_csv_paths.
+    - ylim_min (float, optional): to set yminimun on plots
     """
+    
     print(f'Generating perFOV distributions of data analysis properties: 2Dlocs, 3Dlocs, numTracks...')
     for column_heading in ['num_2Dlocs_perframe', 'num_raw3Dlocs_perframe', 'num_cropped3Dlocs_perframe', 'numTracks_perframe', 'mean_axialPrecision', 'mean_lateralPrecision']:
         distribution_lists = []
-        for path in (csv_list):
-            distribution_lists.append(pd.read_csv(path)[column_heading].dropna().tolist())
+        skip_column = False
 
-        means = {}
-        stds = {}
-        for label, dist_list in zip(sample_labels, distribution_lists):
-            means[label] = np.mean(dist_list)
-            stds[label] = np.std(dist_list)
+        for path in csv_list:
+            df = pd.read_csv(path)
+            if column_heading not in df.columns:
+                print(f"Column '{column_heading}' not found in {path}, skipping this parameter.")
+                skip_column = True
+                break
+            values = df[column_heading].dropna().tolist()
+            distribution_lists.append(values)
 
+        if skip_column:
+            continue
+
+        if all(len(lst) == 0 for lst in distribution_lists):
+            print(f"No data found for column '{column_heading}', skipping.")
+            continue
+
+        means = {label: np.mean(dist) for label, dist in zip(sample_labels, distribution_lists)}
+        stds = {label: np.std(dist) for label, dist in zip(sample_labels, distribution_lists)}
         xs = [np.random.normal(i + 1, 0.04, len(group)) for i, group in enumerate(distribution_lists)]
 
         width_per_dataset = 6.4 / 3
@@ -375,39 +388,31 @@ def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None,
 
         plt.figure(figsize=(fig_width, 4.8))
 
-        if len(distribution_lists) == 2:
-            plt.boxplot(
-                distribution_lists,
-                tick_labels=sample_labels,
-                widths=0.28,
-                medianprops=dict(color='black'))
-        else:
-            plt.boxplot(
-                distribution_lists,
-                tick_labels=sample_labels,
-                medianprops=dict(color='black'))
+        plt.boxplot(
+            distribution_lists,
+            tick_labels=sample_labels,
+            widths=0.28 if len(distribution_lists) == 2 else 0.5,
+            medianprops=dict(color='black')
+        )
 
         plt.ylabel(f'{column_heading}', fontsize=12)
 
-        if rgb_list:
-            if len(rgb_list) != len(distribution_lists):
-                print("number of rgb codes provided doesn't match number of datasets to compare")
+        if rgb_list and len(rgb_list) == len(distribution_lists):
             for x, val, rgb in zip(xs, distribution_lists, rgb_list):
                 plt.scatter(x, val, color=rgb, alpha=0.4)
         else:
             clevels = np.linspace(0., 1., len(distribution_lists))
             for x, val, clevel in zip(xs, distribution_lists, clevels):
                 plt.scatter(x, val, color=cm.prism(clevel), alpha=0.4)
-        
+
         all_values = np.concatenate(distribution_lists)
-        padding = 0.1 * (np.max(all_values) - np.min(all_values))
+        padding = 0.1 * (np.max(all_values) - np.min(all_values)) if len(all_values) > 0 else 1
         lower_limit = ylim_min if ylim_min is not None else np.min(all_values) - padding
         upper_limit = np.max(all_values) + padding
 
         plt.ylim(lower_limit, upper_limit)
 
-        destination_dir = os.path.join(root_directory,'results', '_'.join(sample_labels) + '_perFOV_results')
-
+        destination_dir = os.path.join(root_directory, 'results', '_'.join(sample_labels) + '_perFOV_results')
         os.makedirs(destination_dir, exist_ok=True)
         destination_subdir = os.path.join(destination_dir, 'analysisParams', column_heading)
         os.makedirs(destination_subdir, exist_ok=True)
@@ -419,16 +424,12 @@ def jitter_pipelineStats(csv_list, sample_labels, root_directory, rgb_list=None,
         txt_path = os.path.join(destination_subdir, '_'.join(sample_labels) + f'_{column_heading}_stats.txt')
         with open(txt_path, 'w', encoding='utf-8') as fileHandle:
             fileHandle.write(f"=== {column_heading} - Stats Summary ===\n\n")
-
             fileHandle.write(f">> Means:\n")
             for label in sample_labels:
                 fileHandle.write(f"{label}: {means[label]:.5f}\n")
-            fileHandle.write("\n")
-
-            fileHandle.write(f">> Standard Deviations:\n")
+            fileHandle.write("\n>> Standard Deviations:\n")
             for label in sample_labels:
                 fileHandle.write(f"{label}: {stds[label]:.5f}\n")
             fileHandle.write("\n")
 
     print(f'Successfully saved perFOV analysis params to "../results/{'_'.join(sample_labels)}_perFOV_results/analysisParams" folder.\n')
-
