@@ -91,8 +91,8 @@ def mean_precision(input_dir):
         datasetName = foldername
         results_folder = os.path.join(input_dir, foldername)
         lat_err, ax_err = get_precision(results_folder)
-        df_latPrecision[datasetName] = lat_err
-        df_axPrecision[datasetName] = ax_err
+        df_latPrecision[datasetName] = lat_err*1000
+        df_axPrecision[datasetName] = ax_err*1000
 
     return df_latPrecision, df_axPrecision
 
