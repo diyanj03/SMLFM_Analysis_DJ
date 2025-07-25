@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 from ..graphs import draw_3d_locs, draw_occurrences, draw_histogram
 
 
-def reconstruct_results(fig1: Figure, fig2: Figure, fig3: Figure,
+def reconstruct_results(fig1: Figure, fig2: Figure,
                         locs3d_data_or_file: Union[Path, npt.NDArray[float]],
                         max_lateral_err: Optional[float] = None,
                         min_view_count: Optional[int] = None

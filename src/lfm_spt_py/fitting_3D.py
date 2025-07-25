@@ -258,12 +258,11 @@ def fittingAxialLocs(csv_file_path, root_dir, config_name=None, cfg=None):
     # 9. Plotting results
 
     if cfg.show_graphs and cfg.show_result_graphs:
-        fig1, fig2, fig3 = graphs.reconstruct_results(
-            plt.figure(), plt.figure(), plt.figure(),
+        fig1, fig2 = graphs.reconstruct_results(
+            plt.figure(), plt.figure(),
             locs_3d, cfg.show_max_lateral_err, cfg.show_min_view_count)
         fig1.canvas.manager.set_window_title('Occurrences')
         fig2.canvas.manager.set_window_title('Histogram')
-        fig3.canvas.manager.set_window_title('3D')
 
     # End
 
