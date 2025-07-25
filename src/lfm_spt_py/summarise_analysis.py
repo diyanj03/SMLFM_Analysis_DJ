@@ -194,7 +194,7 @@ def compile_stats(sample_name, root_directory, matlab_results_dir=None, custom_d
             fm_3Dlocs_dir = os.path.join(root_directory, 'data', 'formatted_3Dlocs')
             cropped_3Dlocs_dir = os.path.join(root_directory, 'data', 'cropped_3Dlocs')
             tracks_dir = os.path.join(root_directory, 'data', 'tracks')
-            fitting3D_dir = os.path.join(root_directory, '3D_fitting_results')
+            fitting3D_dir = os.path.join(root_directory, 'data', '3D_fitting_results')
 
 
 
