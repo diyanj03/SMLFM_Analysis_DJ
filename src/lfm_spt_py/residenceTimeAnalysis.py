@@ -136,6 +136,7 @@ def compute_keffs(counts_dict, plot_semilog):
         actual_x = np.arange(1, len(counts)+0.01, 1) * tau_tl
         fit_x = np.linspace(min(actual_x), max(actual_x), 200)
         
+        counts = np.array(counts)
         valid = counts > 0
         actual_x_valid = actual_x[valid]
         perc_valid = counts[valid]
@@ -513,6 +514,7 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog):
     fig, ax = plt.subplots()
     for i, tau_tl in enumerate(tau_tl_values):
         counts, total_counts, _ = counts_dict[tau_tl]
+        counts = np.array(counts)
         perc_surv = counts / total_counts
         idx_trunc = find_first_valid_index(counts)
         perc_surv_trunc = perc_surv[:idx_trunc]
@@ -780,6 +782,7 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
     fig3, ax3 = plt.subplots()
     for i, tau_tl in enumerate(tau_tl_values):
         counts, total_counts, _ = counts_dict[tau_tl]
+        counts = np.array(counts)
         perc_surv = counts / total_counts
         idx_trunc = find_first_valid_index(counts)
         perc_surv_trunc = perc_surv[:idx_trunc]
