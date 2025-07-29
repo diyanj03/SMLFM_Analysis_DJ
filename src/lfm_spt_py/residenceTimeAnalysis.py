@@ -214,11 +214,14 @@ def compute_koff(keff_dict, tau_int):
 
     popt, pcov = curve_fit(linear_func, tau_tl_list, y, sigma=y_err, absolute_sigma=True)
     slope, intercept = popt
-    koff_std_err = np.sqrt(np.diag(pcov))[0]
+    koff_se = np.sqrt(np.diag(pcov))[0]
+    cb_std_err = np.sqrt(np.diag(pcov))[1]
 
     k_off = slope
     c_b = intercept
     k_b = c_b / tau_int
+
+    kb_se = cb_std_err/tau_int
 
     ci_list = compute_all_CI(popt, pcov, len(tau_tl_list))
 
@@ -250,10 +253,10 @@ def compute_koff(keff_dict, tau_int):
 
     ax.legend(handles=[data_handle, fit_handle])
 
-    return (k_off, k_b), (ci_list[0], ci_list[1], rss), fig
+    return (k_off, k_b), (koff_se, kb_se), (ci_list[0], ci_list[1], rss), fig
 
 
-def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, root_directory=None, destination_directory=None):
+def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, output95CI=False, root_directory=None, destination_directory=None):
     """
     Residence time analysis using SPT data from timelapse experiments.
     Individually fits keff values from each timelapse experiment data and then computes photobleaching and dissociation rate.
@@ -261,6 +264,9 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ro
     - input_dict (dict): Dictionary where keys represent tau_tl (unit: seconds) and values represent folder path to csv SPT files or counts data. 
     - tau_int (float): camera integration time/exposure time in seconds.
     - sample_name: name of sample/condition
+    - plot_semilog (bool=True, optional): whether to plot the hist fit in log-log scale.
+    - balance_tl_weigths (bool=True, optional): whether to assign equal weight to each tau_tl experiment in the fitting.
+    - output95CI (bool=False, optional): to output 95% confidence interval of fitted params instead of sd.
     - root_directory
     - destination_directory (str, optional): path to custom destination 
 
@@ -292,7 +298,7 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ro
         os.makedirs(destination_dir, exist_ok=True)
 
     keff_dict, expFit_fig = compute_keffs(counts_dict, plot_semilog)
-    rates, linFit_metrics, linFit_fig = compute_koff(keff_dict, tau_int)
+    rates, (koff_se, kb_se), linFit_metrics, linFit_fig = compute_koff(keff_dict, tau_int)
     
     if destination_directory or root_directory:
     # saving figures
@@ -310,9 +316,12 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ro
     
     txt_out += "\nk_eff values from fitting each tau_tl distribution to a single-exp decay:\n"
     A_values = []
-    for tau_tl, (A_fit, keff_fit, keff_ci, _) in keff_dict.items():
-        keff_hw_ci = compute_half_width_ci(keff_ci)
-        txt_out += f"-  timelapse {tau_tl}s : k_eff = {keff_fit:.4f} ± {keff_hw_ci:.4f} s⁻¹\n"
+    for tau_tl, (A_fit, keff_fit, keff_ci, keff_se) in keff_dict.items():
+        if output95CI:
+            keff_hw_ci = compute_half_width_ci(keff_ci)
+            txt_out += f"-  timelapse {tau_tl}s : k_eff = {keff_fit:.4f} ± {keff_hw_ci:.4f} s⁻¹\n"
+        else: 
+            txt_out += f"-  timelapse {tau_tl}s : k_eff = {keff_fit:.4f} ± {keff_se:.4f} s⁻¹\n"
         A_values.append(A_fit)
     
     txt_out += f"\nCamera integration (exposure time): {tau_int}s\n"
@@ -320,15 +329,22 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ro
     k_off_ci = compute_half_width_ci(linFit_metrics[0])
     k_b_ci = compute_half_width_ci(linFit_metrics[1])
 
-
+    
     txt_out += "\nk_off and k_b values from linear reg of k_eff values:\n"
-    txt_out += f"-  Dissociation rate (k_off): {rates[0]:.4f} ± {k_off_ci:.4f} s⁻¹\n"
-    txt_out += f"       → Estimated residence time: {(1/rates[0]):.2f} s\n"
-    txt_out += f"-  Photobleaching rate (k_b): {rates[1]:.4f} ± {k_b_ci:.4f} s⁻¹\n"
+    if output95CI:
+        txt_out += f"-  Dissociation rate (k_off): {rates[0]:.4f} ± {k_off_ci:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {(1/rates[0]):.2f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {rates[1]:.4f} ± {k_b_ci:.4f} s⁻¹\n"
+    else:
+        txt_out += f"-  Dissociation rate (k_off): {rates[0]:.4f} ± {koff_se:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {(1/rates[0]):.2f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {rates[1]:.4f} ± {kb_se:.4f} s⁻¹\n"
     txt_out += f"-  Residual Sum of Squares of linear fit = {linFit_metrics[2]:.4f}\n"
 
-    txt_out += "\nNote: '±' denotes the half-width of the 95% confidence interval around the fitted parameter.\n"
-
+    if output95CI:
+        txt_out += "\nNote: '±' denotes the half-width of the 95% confidence interval around the fitted parameter.\n"
+    else: 
+        txt_out += "\nNote: '±' denotes the s.d. of the fitted parameter.\n"
     print(txt_out)
 
     # print(f"A_values = {', '.join(str(round(A_value)) for A_value in A_values)}")
@@ -445,7 +461,7 @@ def get_singleExp_params(counts_dict, tau_int):
 
 
 
-def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog):
+def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min_residence_time, cap_residence_time):
     
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -482,9 +498,19 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog):
 
     A_guesses,koff_guess,kb_guess = get_singleExp_params(counts_dict, tau_int)
 
+    if min_residence_time == 0:
+        koff_upper = np.inf
+    else:
+        koff_upper = 1/min_residence_time
+
+    if cap_residence_time == np.inf:
+        koff_lower = 0.0
+    else: 
+        koff_lower = 1/cap_residence_time
+
     p0_single = list(A_guesses) + [koff_guess, kb_guess]
-    bounds_single = ([0.0] * len(tau_tl_values) + [0.0, 0.0],
-                     [np.inf] * len(tau_tl_values) + [np.inf, np.inf])
+    bounds_single = ([0.0] * len(tau_tl_values) + [koff_lower, 0.0],
+                     [np.inf] * len(tau_tl_values) + [koff_upper, np.inf])
 
     if balance_tl_weights:
         # Equalise the influence of each tau_tl group
@@ -567,7 +593,7 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
     """
     Args:
     - tracks_dict: keys represent tau_tl and values represent path to folder containing tracks files for that tau_tl.
-    - kb_value: tuple of (kb_value, kb_error) from global fit
+    - kb_value: tuple of (kb_value, kb_std_error) from global fit
     - tau_int: integration time
 
     Returns:
@@ -634,7 +660,9 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
             _,ci = compute_all_CI(popt, pcov, len(counts))
 
             koff_val = k_eff_fit - (tau_int/tau_tl)*kb_value[0]
-            koff_ci = (ci[0] + kb_value[1][0], ci[1] + kb_value[1][1])
+            koff_err = np.sqrt(k_eff_err**2 +((tau_int/tau_tl)*kb_value[1])**2)
+
+            # koff_ci = (ci[0] + kb_value[1][0], ci[1] + kb_value[1][1])
             k_off_annot = rf"$k_{{\mathrm{{off}}}} = {koff_val:.3f} \mathrm{{s^{{-1}}}}$"
 
             perc_surviving = counts / total_count
@@ -656,10 +684,10 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
             ax_indiv.set_title(f"Cell={len(koff_values)+1}, interval_time={tau_tl}s, numtracks = {total_count}")
             ax_indiv.legend()
 
-            keff_value = (k_eff_fit, ci)
+            keff_value = (k_eff_fit, k_eff_err)
             keff_values.append(keff_value)
 
-            koff_value = (koff_val, koff_ci)
+            koff_value = (koff_val, koff_err)
             koff_values.append(koff_value)
 
             total_counts.append(total_count)
@@ -701,7 +729,7 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
     return results_dict, fig2
 
 
-def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog):
+def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog, cap_B_value, min_residence_time, cap_residence_time):
 
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -741,8 +769,19 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
 
     p0_double = A_guesses.tolist() + [0.5, koff_guess, koff_guess*10, kb_guess]
     upper_bounds = (A_guesses*amplitude_multiplier).tolist()
-    bounds_double = ([0.0] * len(tau_tl_values) + [0.0, 0.0, 0.0, 0.0],
-                     upper_bounds + [1.0, np.inf, np.inf, np.inf])
+    
+    if min_residence_time == 0:
+        koff_upper = np.inf
+    else:
+        koff_upper = 1/min_residence_time
+
+    if cap_residence_time == np.inf:
+        koff_lower = 0.0
+    else: 
+        koff_lower = 1/cap_residence_time
+    
+    bounds_double = ([0.0] * len(tau_tl_values) + [(1-cap_B_value), koff_lower, koff_lower, 0.0],
+                     upper_bounds + [cap_B_value, koff_upper, koff_upper, np.inf])
 
     if balance_tl_weights:
         # Equalise the influence of each tau_tl group
@@ -940,7 +979,7 @@ def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
             ax_indiv.set_title(f"Cell={len(B_values)+1}, interval_time={tau_tl}s, numtracks = {total_count}")
             ax_indiv.legend()
             
-            B_value = (B_fit, ci)
+            B_value = (B_fit, B_err)
             B_values.append(B_value)
             total_counts.append(total_count)
             indiv_fig_list.append(fig_indiv)
@@ -980,7 +1019,7 @@ def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
 
 
 
-def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, plot_semilog=True, balance_tl_weights=True, root_directory = None, destination_directory=None):
+def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, plot_semilog=True, balance_tl_weights=True, min_residence_time=0.0, cap_residence_time=np.inf, cap_B_value=0.999, output95CI=False, root_directory = None, destination_directory=None):
     """
     Residence time analysis using SPT data from timelapse experiments.
     Performs a global single and double exponential fit to estimate kinetics parameters directly.
@@ -993,7 +1032,12 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     - balance_tl_weights (boolean): to equalise the influence of each tau_tl group in the fit.
     - root_directory (str, optional)
     - destination_directory (str, optional)
-    - plot_semilog (bool, optional): whether to plot the hist fit in log-log scale.
+    - plot_semilog (bool=True, optional): whether to plot the hist fit in log-log scale.
+    - balance_tl_weigths (bool=True, optional): whether to assign equal weight to each tau_tl experiment in the fitting
+    - min_residence_time (float=0.0, optional): to set a minimum residence time
+    - cap_residence_time (float=np.inf, optional): to cap the residence time
+    - cap_B_value (float=1.0, optional): to cap the fraction of either population in double exp fit.
+    - output95CI (bool=False, optional): to output 95% confidence interval of fitted params instead of sd.
 
     Outputs:
     - PDF plots
@@ -1014,8 +1058,8 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     else:
         raise ValueError("Unknown input_dict format")
 
-    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),(fig, fig2) = global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog)
-    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), (fig3, fig4) = global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog)
+    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),(fig, fig2) = global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min_residence_time, cap_residence_time)
+    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se_d), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), (fig3, fig4) = global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog, cap_B_value, min_residence_time, cap_residence_time)
 
     # save figures
     if destination_directory:
@@ -1061,26 +1105,41 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
 
     # single exp
     txt_out += "\nResults from a global single-exp decay fit:\n"
-    txt_out += f"-  Dissociation rate (k_off): {koff_fit_s:.4f} ± {koff_hw_s:.4f} s⁻¹\n"
-    txt_out += f"       → Estimated residence time: {1/koff_fit_s:.2f} ± {((koff_hw_s)/((koff_fit_s)**2)):.4f} s\n"
-    txt_out += f"-  Photobleaching rate (k_b): {kb_fit_s:.4f} ± {kb_hw_s:.4f} s⁻¹\n"
+    if output95CI:
+        txt_out += f"-  Dissociation rate (k_off): {koff_fit_s:.4f} ± {koff_hw_s:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff_fit_s:.2f} ± {((koff_hw_s)/((koff_fit_s)**2)):.4f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {kb_fit_s:.4f} ± {kb_hw_s:.4f} s⁻¹\n"
+    else:
+        txt_out += f"-  Dissociation rate (k_off): {koff_fit_s:.4f} ± {koff_se:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff_fit_s:.2f} ± {((koff_se)/((koff_fit_s)**2)):.4f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {kb_fit_s:.4f} ± {kb_se:.4f} s⁻¹\n" 
     txt_out += f"-  Residual sum of squares: {rss_s:.4f}\n"
     txt_out += f"-  BIC value: {bic_s:.4f}\n"
 
-
     # double exp
     txt_out += "\nResults from a global double-exp decay fit:\n"
-    txt_out += f"-  Fraction of long-lived population (B): {B_fit_d:.3f} ± {B_hw_d:.3f} (95% CI)\n"
-    txt_out += f"-  Slow dissociation rate (k_off1): {koff1_fit_d:.4f} ± {koff1_hw_d:.4f} s⁻¹\n"
-    txt_out += f"       → Estimated residence time: {1/koff1_fit_d:.2f} ± {((koff1_hw_d)/((koff1_fit_d)**2)):.4f} s\n"
-    txt_out += f"-  Fast dissociation rate (k_off2): {koff2_fit_d:.4f} ± {koff2_hw_d:.4f} s⁻¹\n"
-    txt_out += f"       → Estimated residence time: {1/koff2_fit_d:.2f} ± {((koff2_hw_d)/((koff2_fit_d)**2)):.4f} s\n"
-    txt_out += f"-  Photobleaching rate (k_b): {kb_fit_d:.4f} ± {kb_hw_d:.4f} s⁻¹\n"
+    if output95CI:
+        txt_out += f"-  Fraction of long-lived population (B): {B_fit_d:.3f} ± {B_hw_d:.3f} (95% CI)\n"
+        txt_out += f"-  Slow dissociation rate (k_off1): {koff1_fit_d:.4f} ± {koff1_hw_d:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff1_fit_d:.2f} ± {((koff1_hw_d)/((koff1_fit_d)**2)):.4f} s\n"
+        txt_out += f"-  Fast dissociation rate (k_off2): {koff2_fit_d:.4f} ± {koff2_hw_d:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff2_fit_d:.2f} ± {((koff2_hw_d)/((koff2_fit_d)**2)):.4f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {kb_fit_d:.4f} ± {kb_hw_d:.4f} s⁻¹\n"
+    else:
+        txt_out += f"-  Fraction of long-lived population (B): {B_fit_d:.3f} ± {B_se:.3f} (95% CI)\n"
+        txt_out += f"-  Slow dissociation rate (k_off1): {koff1_fit_d:.4f} ± {koff1_se:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff1_fit_d:.2f} ± {((koff1_se)/((koff1_fit_d)**2)):.4f} s\n"
+        txt_out += f"-  Fast dissociation rate (k_off2): {koff2_fit_d:.4f} ± {koff2_se:.4f} s⁻¹\n"
+        txt_out += f"       → Estimated residence time: {1/koff2_fit_d:.2f} ± {((koff2_se)/((koff2_fit_d)**2)):.4f} s\n"
+        txt_out += f"-  Photobleaching rate (k_b): {kb_fit_d:.4f} ± {kb_se_d:.4f} s⁻¹\n"
     txt_out += f"-  Residual sum of squares: {rss_d:.4f}\n"
     txt_out += f"-  BIC value: {bic_d:.4f}\n"
-
-    txt_out += "\nNote: '±' denotes the half-width of the 95% confidence interval around the fitted parameter.\n"
-
+    
+    if output95CI:
+        txt_out += "\nNote: '±' denotes the half-width of the 95% confidence interval around the fitted parameter.\n"
+    else:
+        txt_out += "\nNote: '±' denotes the s.d. of the fitted parameter.\n"
+        
     print(txt_out)
 
     # print(f"\nsingleExp A values = " + ", ".join([str(A_fits_s[0])] + [str(round(v)) for v in A_fits_s[1:]]))
@@ -1096,7 +1155,7 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     # single cell analysis
     if compute_single_cell_fits:
         if bic_s < bic_d:
-            kb_val = (kb_fit_s, kb_ci_s)
+            kb_val = (kb_fit_s, kb_se)
             results_dict, figures2 = compute_keffs_perCell_single(input_dict, kb_val, tau_int)
             if destination_directory or root_directory:
                 per_cell_dest = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits')
@@ -1119,13 +1178,13 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
 
             for tau_tl, (figure, fig_list, keff_list, koff_list, total_count_list) in results_dict.items():
                 txt_output += f"\nTimelapse interval = {tau_tl}:\n"
-                for idx, ((keff, ci), (koff, koff_ci), total_count) in enumerate(zip(keff_list, koff_list, total_count_list)):
+                for idx, ((keff, keff_er), (koff, koff_er), total_count) in enumerate(zip(keff_list, koff_list, total_count_list)):
                     txt_output += f"    - Cell {idx+1}:\n"
                     txt_output += f"        - total counts/tracks = {total_count}\n"
-                    hw_ci = compute_half_width_ci(ci)
-                    hw_koff_ci = compute_half_width_ci(koff_ci)
-                    txt_output += f"        - k_eff = {keff:.4f} ± {hw_ci:.4f} s⁻¹\n"
-                    txt_output += f"        - k_off = {koff:.4f} ± {hw_koff_ci:.4f} s⁻¹\n"
+                    # hw_ci = compute_half_width_ci(ci)
+                    # hw_koff_ci = compute_half_width_ci(koff_ci)
+                    txt_output += f"        - k_eff = {keff:.4f} ± {keff_er:.4f} s⁻¹\n"
+                    txt_output += f"        - k_off = {koff:.4f} ± {koff_er:.4f} s⁻¹\n"
 
             txt_output += f"\nNote: k_off rates are computed by fixing the kb as the value obtained from the global fit."
 
@@ -1158,11 +1217,11 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     
             for tau_tl, (_,_, B_list, total_count_list) in results_dict.items():
                 txt_output += f"\nTimelapse interval = {tau_tl}s:\n"
-                for idx, ((B_val, ci), total_count) in enumerate(zip(B_list, total_count_list)):
+                for idx, ((B_val, B_val_err), total_count) in enumerate(zip(B_list, total_count_list)):
                     txt_output += f"    - Cell {idx+1}:\n"
                     txt_output += f"        - total counts/tracks = {total_count}\n"
-                    hw_ci = compute_half_width_ci(ci)
-                    txt_output += f"        - percentage of long-lived population = {(B_val*100):.1f} ± {(hw_ci*100):.1f} s⁻¹\n"
+                    # hw_ci = compute_half_width_ci(ci)
+                    txt_output += f"        - percentage of long-lived population = {(B_val*100):.1f} ± {(B_val_err*100):.1f} s⁻¹\n"
 
             txt_output += f"\nNote: B values are fitted by assuming the same residence times of the two populations obtained from the global fit."
 
