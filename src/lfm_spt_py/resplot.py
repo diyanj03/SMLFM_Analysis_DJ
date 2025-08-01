@@ -518,8 +518,6 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
         Plots and statistical summaries are saved in the 'results/analysisMetrics' directory under `root_directory`.
     """
 
-
-
     def define_ylabel_units(column_heading):
         if column_heading == 'num_2Dlocs_perframe':
             ylabel == f'Number of 2D localisations per 1000 frames'
@@ -589,6 +587,7 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
                         show_annotations=show_annotations, annotationBaseGap=annotationBaseGap, annotationStackGap=annotationStackGap, annotationTextGap=annotationTextGap,
                         annotationLineWidth=annotationLineWidth, annotationFontSize=annotationFontSize,
                         force_ylim_0=force_ylim_0, force_ylim_max=force_ylim_max, set_ylim_min=set_ylim_min, rgb_list=rgb_list, destination_dir=dst_dir)
+
 
 
 # Association value +- 95% confidence interval of multiple samples.
