@@ -7,9 +7,11 @@ from scipy.optimize import curve_fit
 from scipy.stats.distributions import t
 import os
 import pandas as pd
+import matplotlib.lines as mlines
+import warnings
 
 
-
+rgb_list_main = ['crimson', 'darkgreen', 'navy', 'chocolate', 'purple', 'gold', 'cyan']
 
 def compute_rss_bic(model_func, xdata, ydata, popt):
     """
@@ -109,7 +111,12 @@ def extract_counts(tracks_dict):
     return counts_dict
 
 
-def compute_keffs(counts_dict, plot_semilog):
+def compute_keffs(counts_dict,
+                  plot_semilog=True, rgb_list=None,
+                  scatter_transparency = 0.6, fit_lineWidth = 2,
+                  axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                  legend_fontSize = 12, legend_titleFontSize = 14,
+                  figWidth = 6, figHeight = 5, title_fontSize=15):
     """
     Input raw counts for each timelapse interval for calculating keffs.
     Args:
@@ -127,9 +134,12 @@ def compute_keffs(counts_dict, plot_semilog):
     def exp_decay(x, A, k_eff):
         return A * np.exp(-k_eff * x)
    
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize = (figWidth, figHeight))
 
-    for tau_tl, value in counts_dict.items():
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(counts_dict)]
+
+    for i, (tau_tl, value) in enumerate(counts_dict.items()):
         counts = value[0]
         total_counts = np.sum(counts)
 
@@ -162,30 +172,46 @@ def compute_keffs(counts_dict, plot_semilog):
 
         actual_x = actual_x[:idx_trunc]
         fit_x = np.linspace(min(actual_x), max(actual_x), 200)
-
-        scatter = ax.scatter(actual_x, perc_surv_trunc, label=f'{tau_tl}s data',zorder=2)
-        
-        label = rf"{tau_tl}s fit"
-
         y_fit = exp_decay(fit_x, A_fit, k_eff_fit) / total_counts
 
-        ax.plot(fit_x, y_fit, label = label, color=scatter.get_facecolors()[0], zorder=1)
+        ax.scatter(actual_x, perc_surv_trunc, color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label=f'{tau_tl}s data',zorder=4)
+        ax.plot(fit_x, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f'{tau_tl}s fit', zorder=3)
 
     ax.set_xscale('log')
     if plot_semilog:
         ax.set_yscale('log')
         ax.set_xscale('linear')
 
-    ax.set_axisbelow(True)
-    ax.grid(which='both', linestyle='--', linewidth=0.5, zorder = 0)
-    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
-    ax.set_ylabel("fraction surviving")
-    ax.set_title('single-exp keff fit')
-    ax.legend()
+    ax.set_xlabel(r"Time (seconds)")
+    ax.set_ylabel("Fraction Surviving")
 
+    ax.set_axisbelow(True)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
+    ax.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+    ax.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+    ax.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+    for spine in ax.spines.values():
+        spine.set_linewidth(axes_lineWidth)
+
+    handles = []
+    tau_tl_values = sorted(counts_dict.keys()) 
+    for i, tau_tl in enumerate(tau_tl_values):
+        handle = mlines.Line2D([], [], color=rgb_list[i], linestyle='-', linewidth=fit_lineWidth,
+                            marker='o', markerfacecolor=rgb_list[i], markeredgecolor='k',
+                            markeredgewidth=0.5, alpha=scatter_transparency, markersize=7, label=f'{tau_tl}')
+        handles.append(handle)
+
+    ax.legend(handles=handles, title=r'$\tau_{\mathrm{tl}}$ (s)', fontsize=legend_fontSize, title_fontsize=legend_titleFontSize)
+    ax.set_title(r'Single-Exponential Decay – $k_{\mathrm{eff}}$ Fit', fontsize=title_fontSize)
+    fig.tight_layout()
     return keff_dict, fig
 
-def compute_koff(keff_dict, tau_int):
+def compute_koff(keff_dict, tau_int,
+                 rgb_list=None, lin_scatter_markersize=7.5, lin_force_scatter_black = False,
+                 lin_axes_lineWidth=1.5, lin_axisLabel_fontSize=14, lin_tickLabel_fontsize=12,
+                 lin_figWidth = 5, lin_figHeight = 4, lin_force_ylim_upper = None, lin_force_ylim_0 = True, lin_title_fontSize=14,
+                 lin_show_error_band=True, lin_confidence_multiplier=1, lin_conf_band_colour=None, lin_conf_band_transparency=0.3,
+                 lin_fitColour=None):
     """
     Weighted linear fit of keff * tau_tl vs tau_tl using keff std errors as weights.
 
@@ -205,7 +231,6 @@ def compute_koff(keff_dict, tau_int):
     tau_tl_list = np.array(list(keff_dict.keys()))
     keff_values = np.array([v[1] for v in keff_dict.values()])
     keff_errors = np.array([v[3] for v in keff_dict.values()])
-
     keff_upper = (np.array([v[2][1] for v in keff_dict.values()])) * tau_tl_list
     keff_lower = (np.array([v[2][0] for v in keff_dict.values()])) * tau_tl_list
 
@@ -220,63 +245,180 @@ def compute_koff(keff_dict, tau_int):
     k_off = slope
     c_b = intercept
     k_b = c_b / tau_int
-
     kb_se = cb_std_err/tau_int
 
     ci_list = compute_all_CI(popt, pcov, len(tau_tl_list))
-
     ci_list[1] = (np.array(ci_list[1]))/tau_int
-
     rss,_ = compute_rss_bic(linear_func, tau_tl_list, y, popt)
 
     t = np.linspace(0, max(tau_tl_list), 200)
     fit = linear_func(t, slope, intercept)
 
-    fig, ax = plt.subplots()
-    k_off_annot = rf"$k_{{\mathrm{{off}}}} = {k_off:.3f} \mathrm{{s^{{-1}}}}$"
-
-
     lower_errors = y - keff_lower  
     upper_errors = keff_upper - y  
-
     y_err1 = [lower_errors, upper_errors]
 
-    data_handle = ax.errorbar(tau_tl_list, y, yerr=y_err1, fmt='o', color='black', capsize=3, elinewidth=1, label='data', zorder=2)
-    fit_handle, = ax.plot(t, fit, color='grey', label=f'fit: {k_off_annot}', zorder=1)
+    fig, ax = plt.subplots(figsize=(lin_figWidth,lin_figHeight))
 
-    ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(tau_tl_list)]
+
+    if lin_show_error_band:
+        for i in range(len(tau_tl_list)):
+            if lin_force_scatter_black:
+                marker_col = 'black'
+            else: 
+                marker_col = rgb_list[i]
+            ax.plot(tau_tl_list[i], y[i],
+                    'o',
+                    markerfacecolor=marker_col,
+                    markeredgecolor='black',
+                    markersize=lin_scatter_markersize,
+                    zorder=4)
+
+        J = np.vstack([t, np.ones_like(t)]).T
+        fit_var = np.sum(J @ pcov * J, axis=1)
+        fit_std = np.sqrt(fit_var)
+
+        fit_handle, = ax.plot(t, fit, color='black',
+                            label=rf'fit: $k_{{\mathrm{{off}}}} = {k_off:.3f}\ \mathrm{{s}}^{{-1}}$',
+                            zorder=3)
+
+        if lin_conf_band_colour is None:
+            lin_conf_band_colour = 'grey'
+
+        ax.fill_between(t, fit - lin_confidence_multiplier * fit_std,
+                        fit + lin_confidence_multiplier * fit_std,
+                        color=lin_conf_band_colour, alpha=lin_conf_band_transparency, zorder=2)
+    
+    else:
+        for i in range(len(tau_tl_list)):
+            if lin_force_scatter_black:
+                marker_col = 'black'
+            else: 
+                marker_col = rgb_list[i]
+                ax.errorbar(
+                    tau_tl_list[i], y[i],
+                    yerr=[[y_err1[0][i]], [y_err1[1][i]]],
+                    fmt='o',
+                    markerfacecolor=marker_col,
+                    markeredgecolor='black',
+                    markersize=lin_scatter_markersize,
+                    ecolor='black',
+                    zorder=4,
+                    capsize=3  # optional: adds small horizontal lines at error bar ends
+                )
+        
+        if lin_fitColour == None:
+            lin_fitColour = 'black'
+        ax.plot(t, fit, color=lin_fitColour, label=rf'fit: $k_{{\mathrm{{off}}}} = {k_off:.3f}\ \mathrm{{s}}^{{-1}}$', zorder=3)
+
+    ax.set_xlabel(r"$\tau_{\mathrm{tl}}$ (s)")
     ax.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-    current_ylim = ax.get_ylim()
-    ax.set_ylim(bottom=0, top=current_ylim[1])
-    ax.set_axisbelow(True)
-    ax.grid(True, zorder=0)
 
-    ax.legend(handles=[data_handle, fit_handle])
+    if lin_force_ylim_0 and lin_force_ylim_upper is None:
+        ax.set_ylim(bottom=0)
+
+    if lin_force_ylim_upper is not None and not lin_force_ylim_0:
+        ax.set_ylim(top=lin_force_ylim_upper)
+    
+    if lin_force_ylim_upper is not None and lin_force_ylim_0:
+        ax.set_ylim(bottom =0, top=lin_force_ylim_upper)
+
+    ax.set_axisbelow(True)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
+    ax.tick_params(axis='both', which='major', labelsize=lin_tickLabel_fontsize, width=2, length=6)
+    ax.xaxis.label.set_size(lin_axisLabel_fontSize)
+    ax.yaxis.label.set_size(lin_axisLabel_fontSize)
+    for spine in ax.spines.values():
+        spine.set_linewidth(lin_axes_lineWidth)
+
+    ax.set_title(r'Linear - $k_{\mathrm{off}}$ Fit', fontsize=lin_title_fontSize)
+    fig.tight_layout()
 
     return (k_off, k_b), (koff_se, kb_se), (ci_list[0], ci_list[1], rss), fig
 
 
-def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, output95CI=False, root_directory=None, destination_directory=None):
+def main_sequentialFit(input_dict: dict, tau_int: float, sample_name: str, root_directory: str=None, destination_directory: str=None, **kwargs : dict):
     """
-    Residence time analysis using SPT data from timelapse experiments.
-    Individually fits keff values from each timelapse experiment data and then computes photobleaching and dissociation rate.
-    Args:
-    - input_dict (dict): Dictionary where keys represent tau_tl (unit: seconds) and values represent folder path to csv SPT files or counts data. 
-    - tau_int (float): camera integration time/exposure time in seconds.
-    - sample_name: name of sample/condition
-    - plot_semilog (bool=True, optional): whether to plot the hist fit in log-log scale.
-    - balance_tl_weigths (bool=True, optional): whether to assign equal weight to each tau_tl experiment in the fitting.
-    - output95CI (bool=False, optional): to output 95% confidence interval of fitted params instead of sd.
-    - root_directory
-    - destination_directory (str, optional): path to custom destination 
+    Performs sequential fitting to compute effective decay rates of SPT counts for each time interval experiment and subsequently computing off and photobleaching rates via a linear fit.
+    Below describes the input parameters (including **kwargs arguments).
+    
+    Parameters 
+    ----------
+    input_dict : dict
+        Dictionary where keys represent the interval time (float) and values represent the path to the folder containing timelapse SPT data.
+    tau_int : float
+        The camera integration or exposure time in seconds.
+    sample_name : str
+        The name of the sample, used for titling and saving.
+    root_directory : str or None, optional
+        Path to the root directory for saving outputs (default is None).
+    destination_directory : str or None, optional
+        Directory name within the root to save results (default is None).
+    rgb_list : list or None, optional
+        Colours for plotting each `tau_tl` (default is None).
+    scatter_transparency : float, optional
+        Opaqueness of scatter points, from 0 to 1 (default is 0.6).
+    fit_lineWidth : int, optional
+        Width of the fit line (default is 2).
+    axes_lineWidth : float, optional
+        Width of the plot axes lines (default is 1.5).
+    axisLabel_fontSize : int, optional
+        Font size for the axis labels (default is 14).
+    tickLabel_fontsize : int, optional
+        Font size for the tick labels (default is 12).
+    legend_fontSize : int, optional
+        Font size for the legend text (default is 12).
+    legend_titleFontSize : int, optional
+        Font size for the legend title (default is 14).
+    figWidth : int, optional
+        Figure width in inches (default is 6).
+    figHeight : int, optional
+        Figure height in inches (default is 5).
+    title_fontSize : int, optional
+        Font size for the figure title (default is 15).
+    lin_scatter_markersize : float, optional
+        Scatter plot marker size (default is 7.5).
+    lin_force_scatter_black : bool, optional
+        If True, forces scatter points in the linear koff plot to be black (default is False).
+    lin_axes_lineWidth : float, optional
+        Width of the plot axes lines (default is 1.5).
+    lin_axisLabel_fontSize : int, optional
+        Font size for the axis labels (default is 14).
+    lin_tickLabel_fontsize : int, optional
+        Font size for the tick labels (default is 12).
+    lin_figWidth : int, optional
+        Figure width in inches (default is 5).
+    lin_figHeight : int, optional
+        Figure height in inches (default is 4).
+    lin_force_ylim_upper : float or None, optional
+        Forces the upper y-limit of the plot (default is None).
+    lin_force_ylim_0 : bool, optional
+        If True, forces the lower y-limit to start at 0 (default is True).
+    lin_title_fontSize : int, optional
+        Font size for the figure title (default is 14).
+    lin_show_error_band : bool, optional
+        If True, shows the confidence interval error band (default is True).
+    lin_confidence_multiplier : int or float, optional
+        Multiplier for the confidence interval width (default is 1).
+    lin_conf_band_colour : str or None, optional
+        Color of the confidence band (default is None).
+    lin_conf_band_transparency : float, optional
+        Transparency of the confidence band (default is 0.3).
+    lin_fitColour : str or None, optional
+        Color of the linear fit line (default is None).
+    """
+    output95CI = False
+    koff_keys = {'rgb_list', 'lin_scatter_markersize', 'lin_force_scatter_black', 'lin_axes_lineWidth', 'lin_axisLabel_fontSize', 'lin_tickLabel_fontsize', 'lin_figWidth', 'lin_figHeight', 'lin_force_ylim_upper', 'lin_force_ylim_0', 'lin_title_fontSize', 'lin_show_error_band', 'lin_confidence_multiplier', 'lin_conf_band_colour', 'lin_conf_band_transparency', 'lin_fitColour'}
+    keff_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
+    
+    allowed_keys = koff_keys | keff_keys
+    unknown_keys = set(kwargs) - allowed_keys
+    if unknown_keys:
+          warnings.warn(f"Ignoring unrecognised keyword argument(s): {', '.join(unknown_keys)}", stacklevel=2)
 
-    Outputs: 
-    - exponential_fits plot
-    - linear fit plot
-    - txt of results and rates.
-    """
     first_val = next(iter(input_dict.values()))
-
     if isinstance(first_val, str):
         counts_dict = extract_counts(input_dict)
     elif (
@@ -296,17 +438,24 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ou
     if root_directory:
         destination_dir = os.path.join(root_directory, 'results', f'{sample_name}_residenceTimeAnalysis')
         os.makedirs(destination_dir, exist_ok=True)
+    
+    keff_kwargs = {k: kwargs[k] for k in kwargs if k in keff_keys}
+    keff_dict, expFit_fig = compute_keffs(counts_dict, **keff_kwargs)
 
-    keff_dict, expFit_fig = compute_keffs(counts_dict, plot_semilog)
-    rates, (koff_se, kb_se), linFit_metrics, linFit_fig = compute_koff(keff_dict, tau_int)
+    koff_kwargs = {k: kwargs[k] for k in kwargs if k in koff_keys}
+    rates, (koff_se, kb_se), linFit_metrics, linFit_fig = compute_koff(keff_dict, tau_int, **koff_kwargs)
     
     if destination_directory or root_directory:
     # saving figures
         exp_fit_destination = os.path.join(destination_dir, f'singleExp_keff_histFit.pdf' )
+        exp_fit_destination2 = os.path.join(destination_dir, f'singleExp_keff_histFit.png')
         expFit_fig.savefig(exp_fit_destination)
+        expFit_fig.savefig(exp_fit_destination2, dpi =600)
 
         lin_fit_destination = os.path.join(destination_dir, f'singleExp_koff_kb_linFit.pdf')
         linFit_fig.savefig(lin_fit_destination)
+        lin_fit_destination2 = os.path.join(destination_dir, f'singleExp_koff_kb_linFit.png')
+        linFit_fig.savefig(lin_fit_destination2, dpi=600)
 
     # txt to save/store results.
     txt_out = f"=== Residence Time Analysis of {sample_name} - Results ===\n\n"
@@ -354,7 +503,6 @@ def main_sequentialFit(input_dict, tau_int, sample_name, plot_semilog = True, ou
         txt_destination = os.path.join(destination_dir, 'analysisResults_singleExp_sequentialFit.txt')
         with open(txt_destination, 'w', encoding='utf-8') as file:
             file.write(txt_out)
-
 
 
 def get_initial_params(counts_dict, tau_int):
@@ -461,7 +609,12 @@ def get_singleExp_params(counts_dict, tau_int):
 
 
 
-def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min_residence_time, cap_residence_time):
+def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog=True, min_residence_time=0.0, cap_residence_time=np.inf,
+                     rgb_list=None,
+                     scatter_transparency = 0.6, fit_lineWidth = 2,
+                     axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                     legend_fontSize = 12, legend_titleFontSize = 14,
+                     figWidth = 6, figHeight = 5, title_fontSize=15):
     
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -537,7 +690,11 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min
     koff_ci, kb_ci = compute_all_CI(popt_single, pcov_single, len(ydata))[-2:]
 
     # hist fit plot
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize = (figWidth, figHeight))
+
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(counts_dict)]
+
     for i, tau_tl in enumerate(tau_tl_values):
         counts, total_counts, _ = counts_dict[tau_tl]
         counts = np.array(counts)
@@ -550,60 +707,65 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min
         rate = koff_fit + kb_fit * (tau_int / tau_tl)
         y_fit = A_fits[i] * np.exp(-rate * fit_x) / total_counts
 
-        ax.scatter(actual_x, perc_surv_trunc, label=f'{tau_tl}s data', zorder=2)
-        ax.plot(fit_x, y_fit, label=f'{tau_tl}s fit', zorder=1)
+        ax.scatter(actual_x, perc_surv_trunc,color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label=f'{tau_tl}s data',zorder=4)
+        ax.plot(fit_x, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f'{tau_tl}s fit', zorder=3)
     
     ax.set_xscale('log')
     if plot_semilog:
         ax.set_yscale('log')
         ax.set_xscale('linear')
     
-    ax.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
-    ax.set_ylabel("fraction surviving")
+    ax.set_xlabel(r"Time (seconds)")
+    ax.set_ylabel("Fraction Surviving")
 
     ax.set_axisbelow(True)
     ax.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
-    ax.legend()
-    ax.set_title("single-exp global fit")
-    fig.tight_layout()
+    ax.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+    ax.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+    ax.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+    for spine in ax.spines.values():
+        spine.set_linewidth(axes_lineWidth)
 
-    # lin plot
-    fig2, ax2 = plt.subplots()
-    scatter_vals = [(koff_fit + kb_fit * (tau_int / tau)) * tau for tau in tau_tl_values]
-    ax2.scatter(tau_tl_values, scatter_vals, color='black', label='data', zorder=2)
-    fit_x = np.linspace(min(tau_tl_values), max(tau_tl_values), 100)
-    fit_y = koff_fit * fit_x + kb_fit * tau_int
-    ax2.plot(fit_x, fit_y, linestyle='--', color='grey', label=f'fit: $k_{{off}}={koff_fit:.3f}$', zorder = 1)
-    ax2.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
-    ax2.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-    ax2.set_axisbelow(True)
-    ax2.grid(True, zorder=0)
-    ax2.legend()
-    fig2.tight_layout()
+    handles = []
+    tau_tl_values = sorted(counts_dict.keys()) 
+    for i, tau_tl in enumerate(tau_tl_values):
+        handle = mlines.Line2D([], [], color=rgb_list[i], linestyle='-', linewidth=fit_lineWidth,
+                            marker='o', markerfacecolor=rgb_list[i], markeredgecolor='k',
+                            markeredgewidth=0.5, alpha=scatter_transparency, markersize=7, label=f'{tau_tl}')
+        handles.append(handle)
+
+    ax.legend(handles=handles, title=r'$\tau_{\mathrm{tl}}$ (s)', fontsize=legend_fontSize, title_fontsize=legend_titleFontSize)
+    ax.set_title(r'Single-Exponential Decay - Global Fit', fontsize=title_fontSize)
+    fig.tight_layout()
     
     return (
         (A_fits, koff_fit, kb_fit),
         (koff_se, kb_se),
         (koff_ci, kb_ci),
         (rss, bic),
-        (fig, fig2)
+        fig
     )
 
-def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
+def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int, plot_semilog=True,
+                                rgb_list=None, show_singleCell_plots=False,
+                                scatter_transparency = 0.6, fit_lineWidth = 2,
+                                axes_lineWidth=1.5, axisLabel_fontSize=13, tickLabel_fontsize=12,
+                                legend_fontSize = 12, legend_titleFontSize = 14,
+                                figWidth = 5, figHeight = 4, title_fontSize=13):
     """
     Args:
     - tracks_dict: keys represent tau_tl and values represent path to folder containing tracks files for that tau_tl.
     - kb_value: tuple of (kb_value, kb_std_error) from global fit
     - tau_int: integration time
+    - all plotting kwargs.
 
     Returns:
     - results_dict: keys represent tau_tl
         - value: 
-            - first element: figure/plot of the per cell histogram fits 
-            - second element: list of figures of each cell scatter and fit.
-            - third element: list of (keff, keff_err) values 
-            - fourth element: list of (koff, koff_err) values
-            - fifth element: list of total_counts
+            - 1st element: list of figures of each cell scatter and fit.
+            - 2nd element: list of (keff, keff_err) values 
+            - 3rd element: list of (koff, koff_err) values
+            - 4th element: list of total_counts
     """
     
     def singleExp_decay(t, A, k_eff):
@@ -617,14 +779,15 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
     all_koffs = []
     all_keffs = []
 
-    for tau_tl, tracks_dir in tracks_dict.items():
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(tracks_dict)]
+
+    for i, (tau_tl, tracks_dir) in enumerate(tracks_dict.items()):
         
         koff_values = []
         keff_values = []
         total_counts = []
         indiv_fig_list = []
-
-        fig, ax = plt.subplots()
 
         for filename in os.listdir(tracks_dir):
             if not filename.endswith('.csv'):
@@ -670,19 +833,32 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
             # scatter = ax.scatter(x_data, perc_surviving, zorder = 2)
             y_fit = singleExp_decay(x_fit, A_fit, k_eff_fit) / total_count
 
-            plot = ax.plot(x_fit, y_fit, zorder = 1)
-
             # Create individual figure for each cell
-            fig_indiv, ax_indiv = plt.subplots()
-            ax_indiv.scatter(x_data, perc_surviving, label="data", zorder=2)
-            ax_indiv.plot(x_fit, y_fit, label=f"fit: {k_off_annot}", zorder=1)
-            ax_indiv.set_yscale('log')
+            fig_indiv, ax_indiv = plt.subplots(figsize = (figWidth, figHeight))
+            
+            ax_indiv.scatter(x_data, perc_surviving, color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label='data',zorder=4)
+            ax_indiv.plot(x_fit, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f"fit: {k_off_annot}", zorder=3)
+            
+            ax_indiv.set_xscale('log')
+            if plot_semilog:
+                ax_indiv.set_yscale('log')
+                ax_indiv.set_xscale('linear')
+
+            ax_indiv.set_xlabel(r"Time (seconds)")
+            ax_indiv.set_ylabel("Fraction Surviving")
+
             ax_indiv.set_axisbelow(True)
-            ax_indiv.grid(True, linestyle='--', linewidth=0.5, zorder=0)
-            ax_indiv.set_xlabel("time (seconds)")
-            ax_indiv.set_ylabel("fraction surviving")
-            ax_indiv.set_title(f"Cell={len(koff_values)+1}, interval_time={tau_tl}s, numtracks = {total_count}")
-            ax_indiv.legend()
+            ax_indiv.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
+            ax_indiv.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+            ax_indiv.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+            ax_indiv.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+            for spine in ax_indiv.spines.values():
+                spine.set_linewidth(axes_lineWidth)
+
+            ax_indiv.set_title(f"Cell={len(koff_values)+1}, $\\tau_{{\\mathrm{{tl}}}}$ = {tau_tl}s, numtracks = {total_count}", fontsize = title_fontSize)
+            ax_indiv.legend(fontsize=legend_fontSize)
+            if not show_singleCell_plots:
+                plt.close(fig_indiv)
 
             keff_value = (k_eff_fit, k_eff_err)
             keff_values.append(keff_value)
@@ -693,14 +869,6 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
             total_counts.append(total_count)
             indiv_fig_list.append(fig_indiv)
         
-        ax.set_axisbelow(True)
-        ax.grid(True, zorder=0)
-
-        # ax.set_xscale('log')
-        ax.set_xlabel(r"time (seconds)")
-        ax.set_ylabel("fraction surviving")
-        ax.set_title(f'{tau_tl}s interval - single-exp keff fits per cell')
-        
         # global_xtau.extend([tau_tl] * len(keff_values))
         # global_keffxtau.extend([k_eff * tau_tl for k_eff, _ in keff_values])
         all_tau_tl.extend([tau_tl] * len(koff_values))
@@ -708,28 +876,32 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int):
         all_keffs.extend([keff for keff,_ in keff_values])
 
         
-        results_dict[tau_tl] = (fig, indiv_fig_list, keff_values, koff_values, total_counts)
+        results_dict[tau_tl] = (indiv_fig_list, keff_values, koff_values, total_counts)
+
+    # unique_tau_tl = sorted(set(all_tau_tl))
+    # tau_to_pos = {tau: i for i, tau in enumerate(unique_tau_tl)}
+    # x_positions = [tau_to_pos[tau] for tau in all_tau_tl]
+
+    # fig2, ax_summary = plt.subplots(figsize=(4, 3))
+    # ax_summary.scatter(x_positions, all_keffs, alpha=0.6)
+    # ax_summary.set_xticks(range(len(unique_tau_tl)))
+    # ax_summary.set_xticklabels([str(tau) for tau in unique_tau_tl], rotation=45)
+    # ax_summary.set_xlabel('tau_tl (seconds)')
+    # ax_summary.set_ylabel('keff')
+
+    # left_pad = -0.5
+    # right_pad = len(unique_tau_tl) - 0.5
+    # ax_summary.set_xlim(left_pad, right_pad)
+
+    return results_dict
 
 
-    unique_tau_tl = sorted(set(all_tau_tl))
-    tau_to_pos = {tau: i for i, tau in enumerate(unique_tau_tl)}
-    x_positions = [tau_to_pos[tau] for tau in all_tau_tl]
-
-    fig2, ax_summary = plt.subplots(figsize=(4, 3))
-    ax_summary.scatter(x_positions, all_keffs, alpha=0.6)
-    ax_summary.set_xticks(range(len(unique_tau_tl)))
-    ax_summary.set_xticklabels([str(tau) for tau in unique_tau_tl], rotation=45)
-    ax_summary.set_xlabel('tau_tl (seconds)')
-    ax_summary.set_ylabel('keff')
-
-    left_pad = -0.5
-    right_pad = len(unique_tau_tl) - 0.5
-    ax_summary.set_xlim(left_pad, right_pad)
-
-    return results_dict, fig2
-
-
-def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog, cap_B_value, min_residence_time, cap_residence_time):
+def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl_weights=True, plot_semilog=True, cap_B_value=0.999, min_residence_time=0.0, cap_residence_time=np.inf,
+                     rgb_list=None,
+                     scatter_transparency = 0.6, fit_lineWidth = 2,
+                     axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                     legend_fontSize = 12, legend_titleFontSize = 14,
+                     figWidth = 6, figHeight = 5, title_fontSize=15):
 
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -818,7 +990,11 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
     B_ci, koff1_ci, koff2_ci, kb_ci = compute_all_CI(popt_double, pcov_double, len(ydata))[-4:]
 
     # hist fit 
-    fig3, ax3 = plt.subplots()
+    fig3, ax3 = plt.subplots(figsize = (figWidth, figHeight))
+
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(counts_dict)]
+
     for i, tau_tl in enumerate(tau_tl_values):
         counts, total_counts, _ = counts_dict[tau_tl]
         counts = np.array(counts)
@@ -831,80 +1007,66 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weig
         rate2 = kb_fit * (tau_int / tau_tl) + koff2_fit
         y_fit = A_fits[i] * (B_fit * np.exp(-rate1 * fit_x) + (1 - B_fit) * np.exp(-rate2 * fit_x)) / total_counts
 
-        ax3.scatter(actual_x, perc_surv_trunc, label=f'{tau_tl}s data', zorder=2)
-        ax3.plot(fit_x, y_fit, label=f'{tau_tl}s fit', zorder=1)
+        ax3.scatter(actual_x, perc_surv_trunc,color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label=f'{tau_tl}s data',zorder=4)
+        ax3.plot(fit_x, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f'{tau_tl}s fit', zorder=3)
     
     ax3.set_xscale('log')
     if plot_semilog:
         ax3.set_yscale('log')
         ax3.set_xscale('linear')
-    ax3.set_xlabel(r"n$\tau_{\mathrm{tl}}$ (seconds)")
-    ax3.set_ylabel("fraction surviving")
+
+    ax3.set_xlabel(r"Time (seconds)")
+    ax3.set_ylabel("Fraction Surviving")
+
     ax3.set_axisbelow(True)
     ax3.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
-    ax3.legend()
-    ax3.set_title("double-exp global fit")
+    ax3.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+    ax3.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+    ax3.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+    for spine in ax3.spines.values():
+        spine.set_linewidth(axes_lineWidth)
+
+    handles = []
+    tau_tl_values = sorted(counts_dict.keys()) 
+    for i, tau_tl in enumerate(tau_tl_values):
+        handle = mlines.Line2D([], [], color=rgb_list[i], linestyle='-', linewidth=fit_lineWidth,
+                            marker='o', markerfacecolor=rgb_list[i], markeredgecolor='k',
+                            markeredgewidth=0.5, alpha=scatter_transparency, markersize=7, label=f'{tau_tl}')
+        handles.append(handle)
+
+    ax3.legend(handles=handles, title=r'$\tau_{\mathrm{tl}}$ (s)', fontsize=legend_fontSize, title_fontsize=legend_titleFontSize)
+    ax3.set_title(r'Double-Exponential Decay - Global Fit', fontsize=title_fontSize)
     fig3.tight_layout()
-
-    # lin fit
-    fig4, ax4 = plt.subplots()
-    fit_x = np.linspace(min(tau_tl_values), max(tau_tl_values), 100)
-
-    legend_labels = [f'long-lived ({B_fit*100:.2f}%)', f'short-lived ({(1 - B_fit)*100:.2f}%)']
-    colour_scatter = ['#4B5D67', '#7A6651']
-    colour_scatter = ['#2F4F6F', '#80633E']  
-    colour_fit = ['#9BB8C8', '#C2B08B']      
-
-    all_handles, all_labels = [], []
-
-    for i, k_off in enumerate([koff1_fit, koff2_fit]):
-        scatter_vals_d = [(k_off + kb_fit * (tau_int / tau)) * tau for tau in tau_tl_values]
-        
-        scatter = ax4.scatter(tau_tl_values, scatter_vals_d, alpha=0.7, zorder = 2, color = colour_scatter[i])
-        fit_y_d = k_off * fit_x + kb_fit * tau_int
-        fit, = ax4.plot(fit_x, fit_y_d, linestyle='--', zorder = 1, color = colour_fit[i])
-
-        header = Line2D([], [], color='none', marker=None, linewidth=0)
-
-        all_handles.extend([header, scatter, fit])
-        all_labels.extend([legend_labels[i], '   data', f'   fit: $k_{{off}}={k_off:.3f}$'])
-        if i == 0:
-            spacer = Line2D([], [], color='none', marker=None, linewidth=0)
-            all_handles.append(spacer)
-            all_labels.append("")
-
-    ax4.set_xlabel(r"$\tau_{\mathrm{tl}}$ (seconds)")
-    ax4.set_ylabel(r"$k_{\mathrm{eff}} \, \tau_{\mathrm{tl}}$")
-    ax4.set_axisbelow(True)
-    ax4.grid(True, zorder=0)
-    legend = ax4.legend(handles=all_handles, labels=all_labels, labelspacing=0.4)
-
-    for i, label in enumerate(all_labels):
-        if label in legend_labels:
-            legend.get_texts()[i].set_fontweight('bold')
-    fig4.tight_layout()
 
     return (         
     (A_fits, B_fit, koff1_fit, koff2_fit, kb_fit),
     (B_se, koff1_se, koff2_se, kb_se),
     (B_ci, koff1_ci, koff2_ci, kb_ci),
     (rss, bic),
-    (fig3, fig4)
+    fig3
     )
 
-def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
+def compute_Bval_perCell_double(tracks_dict, koff1, koff2, kb, tau_int,
+                                plot_semilog=True, rgb_list=None, show_singleCell_plots=False,
+                                scatter_transparency = 0.6, fit_lineWidth = 2,
+                                axes_lineWidth=1.5, axisLabel_fontSize=13, tickLabel_fontsize=12,
+                                legend_fontSize = 12, legend_titleFontSize = 14,
+                                figWidth = 5, figHeight = 4, title_fontSize=13):
     """
     Args:
     - tracks_dict: keys represent tau_tl and values represent path to folder containing tracks files for that tau_tl.
+    - koff1 from global fit
+    - koff2 from global fit
+    - kb from global fit
+    - tau_int
+    - all plotting kwargs
 
     Returns:
     - results_dict: keys represent tau_tl
         - value: 
-            - first element: figure/plot of the per cell histogram fits 
-            - second element: list of individual cell figures.
-            - third element: list of (keff, keff_err) values 
-            - fourth element: list of total_counts
-                - e.g. {0.5: (figure, [(keff1, keff_err1), (keff2, keff_err2)], [counts_1, counts_2])}
+            - first element: list of individual cell figures.
+            - second element: list of (B, B_err) values 
+            - third element: list of total_count
     - matplotlib figure: distribution of B values across all tau_tl   
     """
     if koff1 > koff2:
@@ -921,15 +1083,16 @@ def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
     all_tau_tl = []
     all_Bs = []
 
-    for tau_tl, tracks_dir in tracks_dict.items():
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(tracks_dict)]
+
+    for i, (tau_tl, tracks_dir) in enumerate(tracks_dict.items()):
         
         doubleExp_decay1 = model(tau_tl)
 
         B_values = []
         total_counts = []
         indiv_fig_list = []
-
-        fig, ax = plt.subplots()
 
         for filename in os.listdir(tracks_dir):
             if not filename.endswith('.csv'):
@@ -966,83 +1129,105 @@ def compute_keffs_perCell_double(tracks_dict, koff1, koff2, kb, tau_int):
             perc_surviving = counts / total_count
             # scatter = ax.scatter(x_data, perc_surviving, zorder = 2)
             y_fit = doubleExp_decay1(x_fit, A_fit, B_fit) / total_count
-            plot = ax.plot(x_fit, y_fit, zorder = 1)
 
-            fig_indiv, ax_indiv = plt.subplots()
-            ax_indiv.scatter(x_data, perc_surviving, label="data", zorder=2)
-            ax_indiv.plot(x_fit, y_fit, label=f"fit: {B_annot}", zorder=1)
-            ax_indiv.set_yscale('log')
+            fig_indiv, ax_indiv = plt.subplots(figsize = (figWidth, figHeight))
+
+            ax_indiv.scatter(x_data, perc_surviving, color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label='data',zorder=4)
+            ax_indiv.plot(x_fit, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f"fit: {B_annot}", zorder=3)
+            
+            ax_indiv.set_xscale('log')
+            if plot_semilog:
+                ax_indiv.set_yscale('log')
+                ax_indiv.set_xscale('linear')
+
+            ax_indiv.set_xlabel(r"Time (seconds)")
+            ax_indiv.set_ylabel("Fraction Surviving")
+            
             ax_indiv.set_axisbelow(True)
-            ax_indiv.grid(True, linestyle='--', linewidth=0.5, zorder=0)
-            ax_indiv.set_xlabel("time (seconds)")
-            ax_indiv.set_ylabel("fraction surviving")
-            ax_indiv.set_title(f"Cell={len(B_values)+1}, interval_time={tau_tl}s, numtracks = {total_count}")
-            ax_indiv.legend()
+            ax_indiv.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
+            ax_indiv.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+            ax_indiv.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+            ax_indiv.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+            for spine in ax_indiv.spines.values():
+                spine.set_linewidth(axes_lineWidth)
+
+            ax_indiv.set_title(f"Cell={len(B_values)+1}, $\\tau_{{\\mathrm{{tl}}}}$ = {tau_tl}s, numtracks = {total_count}", fontsize = title_fontSize)
+            ax_indiv.legend(fontsize=legend_fontSize)
+            if not show_singleCell_plots:
+                plt.close(fig_indiv)
             
             B_value = (B_fit, B_err)
             B_values.append(B_value)
             total_counts.append(total_count)
             indiv_fig_list.append(fig_indiv)
         
-        ax.set_axisbelow(True)
-        ax.grid(True, zorder=0)
-        ax.set_xscale('log')
-        ax.set_xlabel(r"time (seconds)")
-        ax.set_ylabel("fraction surviving")
-        ax.set_title(f'{tau_tl} - double-exp fits per cell')
-        
         all_tau_tl.extend([tau_tl] * len(B_values))
         all_Bs.extend([B_val for B_val, _ in B_values])
 
-        results_dict[tau_tl] = (fig, indiv_fig_list, B_values, total_counts)
+        results_dict[tau_tl] = (indiv_fig_list, B_values, total_counts)
+
+    return results_dict
+
+
+
+
+def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_directory : str = None, destination_directory : str = None, **kwargs : dict):
+    """"
+    Performs global fitting of SPT counts for each time interval experiment to compute dissociation and photobleaching rates.
+    Performs single exponential decay and double exponential decay and chooses the better model.
+    Outputs single cell information.
+    Below describes the input parameters (including **kwargs arguments). 
     
-    unique_tau_tl = sorted(set(all_tau_tl))
-    tau_to_pos = {tau: i for i, tau in enumerate(unique_tau_tl)}
-    x_positions = [tau_to_pos[tau] for tau in all_tau_tl]
-
-    fig2, ax_summary = plt.subplots(figsize=(4, 3))
-    ax_summary.boxplot(all_Bs, positions=[1], widths=0.4,
-                   medianprops=dict(color='black'))
-
-    ax_summary.scatter(np.random.normal(1, 0.05, size=len(all_Bs)), all_Bs, alpha=0.6, s=10)
-
-    ax_summary.set_xlim(0.5, 1.5)
-    ax_summary.set_ylabel('fraction of long-lived population (B)')
-    ax_summary.grid(True, axis='y', linestyle='--', alpha=0.5)
-    ax_summary.set_xlabel('')          
-    ax_summary.set_xticks([])
-
-
-
-    return results_dict, fig2
-
-
-
-
-def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, plot_semilog=True, balance_tl_weights=True, min_residence_time=0.0, cap_residence_time=np.inf, cap_B_value=0.999, output95CI=False, root_directory = None, destination_directory=None):
+    Parameters 
+    ----------
+    input_dict : dict
+        Dictionary where keys represent the interval time (float) and values represent the path to the folder containing timelapse SPT data.
+    tau_int : float
+        The camera integration or exposure time in seconds.
+    sample_name : str
+        The name of the sample, used for titling and saving.
+    root_directory : str or None, optional
+        Path to the root directory for saving outputs (default is None).
+    destination_directory : str or None, optional
+        Custom directory path to save results (default is 'root_dir/results').
+    rgb_list : list or None, optional
+        Colours for plotting each `tau_tl` (default is None).
+    balance_tl_weights : bool, optional
+        whether to balance the influence of each tau_tl group in fitting (default is True)
+    plot_semilog : bool, optional
+        whether to plot yaxis in log scale or not (default is True)
+    min_residence_time : float, optional
+        a minimum residence time below which values are biologically unfeasible (default is 0.0) 
+    cap_residence_time : float, optional
+        a maximum residence time above which values are biologically unfeasible (default is np.inf) 
+    cap_B_value : float, optional 
+        a maximum fraction of one population over the other in doubleExpFit (default is 0.999) 
+    show_singleCell_plots : bool, optional
+        whether to display all single cell plots when calling this (default is False)
+    amplitude_multiplier : (float, optional)
+        multiple of the singleExp fitted A value to set the cap for the doubleExp A value fitting (default is 1000)
+    scatter_transparency : float, optional
+        Opaqueness of scatter points, from 0 to 1 (default is 0.6).
+    fit_lineWidth : int, optional
+        Width of the fit line (default is 2).
+    axes_lineWidth : float, optional
+        Width of the plot axes lines (default is 1.5).
+    axisLabel_fontSize : int, optional
+        Font size for the axis labels (default is 14).
+    tickLabel_fontsize : int, optional
+        Font size for the tick labels (default is 12).
+    legend_fontSize : int, optional
+        Font size for the legend text (default is 12).
+    legend_titleFontSize : int, optional
+        Font size for the legend title (default is 14).
+    figWidth : int, optional
+        Figure width in inches (default is 6).
+    figHeight : int, optional
+        Figure height in inches (default is 5).
+    title_fontSize : int, optional
+        Font size for the figure title (default is 15).
     """
-    Residence time analysis using SPT data from timelapse experiments.
-    Performs a global single and double exponential fit to estimate kinetics parameters directly.
-
-    Args:
-    - input_dict (dict): tracks_dict or counts_dict
-    - tau_int (float): camera integration time (s)
-    - sample_name (str)
-    - amplitude_multiplier (float): defines the upper bound of the double exponential amplitudes relative to the single exp fitted amplitudes.
-    - balance_tl_weights (boolean): to equalise the influence of each tau_tl group in the fit.
-    - root_directory (str, optional)
-    - destination_directory (str, optional)
-    - plot_semilog (bool=True, optional): whether to plot the hist fit in log-log scale.
-    - balance_tl_weigths (bool=True, optional): whether to assign equal weight to each tau_tl experiment in the fitting
-    - min_residence_time (float=0.0, optional): to set a minimum residence time
-    - cap_residence_time (float=np.inf, optional): to cap the residence time
-    - cap_B_value (float=1.0, optional): to cap the fraction of either population in double exp fit.
-    - output95CI (bool=False, optional): to output 95% confidence interval of fitted params instead of sd.
-
-    Outputs:
-    - PDF plots
-    - TXT summary of results
-    """
+    output95CI=False
     first_val = next(iter(input_dict.values()))
 
     if isinstance(first_val, str):
@@ -1058,8 +1243,27 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     else:
         raise ValueError("Unknown input_dict format")
 
-    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),(fig, fig2) = global_singleExp(counts_dict, tau_int, balance_tl_weights, plot_semilog, min_residence_time, cap_residence_time)
-    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se_d), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), (fig3, fig4) = global_doubleExp(counts_dict, tau_int, amplitude_multiplier, balance_tl_weights, plot_semilog, cap_B_value, min_residence_time, cap_residence_time)
+    single_keys = {'balance_tl_weights', 'plot_semilog', 'min_residence_time', 'cap_residence_time'}
+    double_keys = {'amplitude_multiplier', 'balance_tl_weights', 'plot_semilog', 'cap_B_value', 'min_residence_time', 'cap_residence_time'}
+    common_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
+    singleCell_single_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
+    singleCell_double_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
+
+    single_keys.update(common_keys)
+    double_keys.update(common_keys)
+
+    allowed_keys = single_keys | double_keys | singleCell_single_keys | singleCell_double_keys
+    unknown_keys = set(kwargs) - allowed_keys
+    if unknown_keys:
+          warnings.warn(f"Ignoring unrecognised keyword argument(s): {', '.join(unknown_keys)}", stacklevel=2)
+
+    single_kwargs = {k: kwargs[k] for k in kwargs if k in single_keys}
+    double_kwargs = {k: kwargs[k] for k in kwargs if k in double_keys}
+    singleCell_single_kwargs = {k: kwargs[k] for k in kwargs if k in singleCell_single_keys}
+    singleCell_double_kwargs = {k: kwargs[k] for k in kwargs if k in singleCell_double_keys}
+
+    (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),fig, = global_singleExp(counts_dict, tau_int, **single_kwargs)
+    (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se_d), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), fig3 = global_doubleExp(counts_dict, tau_int, **double_kwargs)
 
     # save figures
     if destination_directory:
@@ -1073,15 +1277,13 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     if destination_directory or root_directory:
         singleExp_histfit_path = os.path.join(destination_dir, 'singleExp_global_histFit.pdf')
         fig.savefig(singleExp_histfit_path)
-
-        singleExp_linFit_path = os.path.join(destination_dir, 'singleExp_global_linPlot.pdf')
-        # fig2.savefig(singleExp_linFit_path)
+        singleExp_histfit_path2 = os.path.join(destination_dir, 'singleExp_global_histFit.png')
+        fig.savefig(singleExp_histfit_path2, dpi = 600)
 
         doubleExp_histfit_path = os.path.join(destination_dir, 'doubleExp_global_histFit.pdf')
         fig3.savefig(doubleExp_histfit_path)
-
-        doubleExp_linFit_path = os.path.join(destination_dir, 'doubleExp_global_linPlot.pdf')
-        # fig4.savefig(doubleExp_linFit_path)
+        doubleExp_histfit_path2 = os.path.join(destination_dir, 'doubleExp_global_histFit.png')
+        fig3.savefig(doubleExp_histfit_path2,dpi=600)
 
 
     def half_width_ci(ci):
@@ -1156,27 +1358,22 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
     if compute_single_cell_fits:
         if bic_s < bic_d:
             kb_val = (kb_fit_s, kb_se)
-            results_dict, figures2 = compute_keffs_perCell_single(input_dict, kb_val, tau_int)
-            if destination_directory or root_directory:
-                per_cell_dest = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits')
-                os.makedirs(per_cell_dest, exist_ok=True)
-                fig_dest = os.path.join(per_cell_dest, f'keffs_perCell_plot.pdf')
-                figures2.savefig(fig_dest)
+            results_dict = compute_keffs_perCell_single(input_dict, kb_val, tau_int, **singleCell_single_kwargs)
             
-            for tau_tl, (figures1,fig_list,_,_,_) in results_dict.items():
+            for tau_tl, (fig_list,_,_,_) in results_dict.items():
                 if root_directory or destination_directory:
-                    figures1_dest = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits', f'{tau_tl}_combinedFits.pdf')
-                    figures1.savefig(figures1_dest)
-
                     for idx, cell_fig in enumerate(fig_list):
                         cell_fig_dir = os.path.join(destination_dir, 'perCell - singleExp_keff_histFits', f'{tau_tl}s_individualFits')
                         os.makedirs(cell_fig_dir, exist_ok=True)
                         cellFig_dst = os.path.join(cell_fig_dir, f'cell_{idx+1}.pdf')
+                        cellFig_dst2 = os.path.join(cell_fig_dir, f'cell_{idx+1}.png')
                         cell_fig.savefig(cellFig_dst)
+                        cell_fig.savefig(cellFig_dst2, dpi=600)
+                        plt.close(cell_fig)
 
             txt_output = f"=== Fitting individual cells of {sample_name} to a single exp decay - Results ===\n"
 
-            for tau_tl, (figure, fig_list, keff_list, koff_list, total_count_list) in results_dict.items():
+            for tau_tl, (fig_list, keff_list, koff_list, total_count_list) in results_dict.items():
                 txt_output += f"\nTimelapse interval = {tau_tl}:\n"
                 for idx, ((keff, keff_er), (koff, koff_er), total_count) in enumerate(zip(keff_list, koff_list, total_count_list)):
                     txt_output += f"    - Cell {idx+1}:\n"
@@ -1195,27 +1392,22 @@ def main_globalFit(input_dict, tau_int, sample_name, amplitude_multiplier=1000, 
                     file.write(txt_output)
 
         else: # double exp single cell fits
-            results_dict, figures2 = compute_keffs_perCell_double(tracks_dict=input_dict, koff1=koff1_fit_d, koff2=koff2_fit_d, kb=kb_fit_d, tau_int=tau_int)
-            if destination_directory or root_directory:
-                per_cell_dest = os.path.join(destination_dir, 'perCell - doubleExp_B_histFits')
-                os.makedirs(per_cell_dest, exist_ok=True)
-                fig2_dest = os.path.join(per_cell_dest,f'Bvalue_perCell_plot.pdf')
-                figures2.savefig(fig2_dest)
+            results_dict = compute_Bval_perCell_double(input_dict, koff1_fit_d, koff2_fit_d, kb_fit_d, tau_int, **singleCell_double_kwargs)
             
-            for tau_tl, (figures1,fig_list,_,_) in results_dict.items():
+            for tau_tl, (fig_list,_,_) in results_dict.items():
                 if root_directory or destination_directory:
-                    figures1_dest = os.path.join(destination_dir, 'perCell - doubleExp_B_histFits', f'{tau_tl}_histFits.pdf')
-                    figures1.savefig(figures1_dest)
-
                     for idx, cell_fig in enumerate(fig_list):
                         cell_fig_dir = os.path.join(destination_dir, 'perCell - doubleExp_B_histFits', f'{tau_tl}s_individualFits')
                         os.makedirs(cell_fig_dir, exist_ok=True)
                         cellFig_dst = os.path.join(cell_fig_dir, f'cell_{idx+1}.pdf')
                         cell_fig.savefig(cellFig_dst)
+                        cellFig_dst2 = os.path.join(cell_fig_dir, f'cell_{idx+1}.png')
+                        cell_fig.savefig(cellFig_dst2, dpi=600)
+                        plt.close(cell_fig)
 
             txt_output = f"=== Fitting individual cells of {sample_name} to a double exp decay - Results ===\n"
     
-            for tau_tl, (_,_, B_list, total_count_list) in results_dict.items():
+            for tau_tl, (_, B_list, total_count_list) in results_dict.items():
                 txt_output += f"\nTimelapse interval = {tau_tl}s:\n"
                 for idx, ((B_val, B_val_err), total_count) in enumerate(zip(B_list, total_count_list)):
                     txt_output += f"    - Cell {idx+1}:\n"
