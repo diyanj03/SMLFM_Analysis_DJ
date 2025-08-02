@@ -477,6 +477,7 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
                                 annotationLineWidth=annotationLineWidth, annotationFontSize=annotationFontSize,
                                 force_ylim_0=force_ylim_0, force_ylim_max=force_ylim_max, set_ylim_min=set_ylim_min, rgb_list=rgb_list, destination_dir=dst_dir)
 
+    print(f"Successfully saved plots and stats of biophysical params to {os.path.join(results_dir, '_'.join(sample_labels) + '_perFOV_results')}")
 
 def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
                    scatter_transparency=0.5, boxplot_shade_transparency=0.2, boxplot_line_width=2,
@@ -520,27 +521,27 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
 
     def define_ylabel_units(column_heading):
         if column_heading == 'num_2Dlocs_perframe':
-            ylabel == f'Number of 2D localisations per 1000 frames'
+            ylabel = f'Number of 2D localisations per 1000 frames'
             unit = None
 
         if column_heading == 'num_raw3Dlocs_perframe':
-            ylabel == f'Number of raw 3D localisations per 1000 frames'
+            ylabel = f'Number of raw 3D localisations per 1000 frames'
             unit = None
 
         if column_heading == 'num_cropped3Dlocs_perframe':
-            ylabel == f'Number of processed 3D localisations per 1000 frames'
+            ylabel = f'Number of processed 3D localisations per 1000 frames'
             unit = None
 
         if column_heading == 'numTracks_perframe':
-            ylabel == f'Number of tracks per 1000 frames'
+            ylabel = f'Number of tracks per 1000 frames'
             unit = None
 
         if column_heading == 'mean_axialPrecision':
-            ylabel == f'Mean Axial Precision (nm)'
+            ylabel = f'Mean Axial Precision (nm)'
             unit = 'nm'
 
-        if column_heading == 'mean_axialPrecision':
-            ylabel == f'Mean Lateral Precision (nm)'
+        if column_heading == 'mean_lateralPrecision':
+            ylabel = f'Mean Lateral Precision (nm)'
             unit = 'nm'
         
         return ylabel, unit
@@ -587,7 +588,7 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
                         show_annotations=show_annotations, annotationBaseGap=annotationBaseGap, annotationStackGap=annotationStackGap, annotationTextGap=annotationTextGap,
                         annotationLineWidth=annotationLineWidth, annotationFontSize=annotationFontSize,
                         force_ylim_0=force_ylim_0, force_ylim_max=force_ylim_max, set_ylim_min=set_ylim_min, rgb_list=rgb_list, destination_dir=dst_dir)
-
+    print(f"Successfully saved plots and stats of image analysis metrics to {os.path.join(root_directory, 'results', '_'.join(sample_labels) + '_perFOV_results', 'analysisMetrics')}")
 
 
 # Association value +- 95% confidence interval of multiple samples.
