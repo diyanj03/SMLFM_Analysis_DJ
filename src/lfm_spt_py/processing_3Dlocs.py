@@ -15,7 +15,7 @@ def plot_3Dlocs(filepath):
     coords_df = locs_file.iloc[:, 2:5]
 
     # Check that all values in selected columns are numeric
-    if not coords_df.applymap(np.isreal).all().all():
+    if not coords_df.apply(lambda col: col.map(np.isreal)).all().all():
         raise TypeError("Coordinate columns contain non-numeric values. Likely due to a bug in 3D fitting. \n Try re-running 3D fitting for this dataset by slightly changing the mla X, Y offset in the 3D_config json file.")
 
     coordinates = locs_file.iloc[:, 2:5].values / 1000 #conversion to microns
