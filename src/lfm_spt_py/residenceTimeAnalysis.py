@@ -343,6 +343,7 @@ def main_sequentialFit(input_dict: dict, tau_int: float, sample_name: str, root_
     """
     Performs sequential fitting to compute effective decay rates of SPT counts for each time interval experiment and subsequently computing off and photobleaching rates via a linear fit.
     Below describes the input parameters (including **kwargs arguments).
+    parameters attributing to the linear koff fit plot are prefixed with lin
     
     Parameters 
     ----------
