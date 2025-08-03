@@ -8,6 +8,7 @@ from scipy.stats import shapiro, ttest_ind, mannwhitneyu, levene, f as f_dist
 import os
 import pandas as pd
 import seaborn as sns
+import inspect
 
 # Extracting data from 4P classifier output
 def extracting_confPerc_values(results_directory):
@@ -392,6 +393,25 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
     Notes:
         Plots and statistical summaries are saved in the 'results' directory under `root_directory`.
     """
+    # logging the arguments
+    log_dir = os.path.join(root_directory, 'results', '_'.join(sample_labels) + '_perFOV_results')
+    os.makedirs(log_dir, exist_ok=True)
+    sig = inspect.signature(batchProcess_4Pparams)
+    default_args = {k: v.default for k, v in sig.parameters.items() if v.default is not inspect.Parameter.empty}
+    all_args = {k: locals()[k] for k in sig.parameters if k in locals()}
+    non_default_args = {k: v for k, v in all_args.items() if k in default_args and v != default_args[k]}
+    default_used_args = {k: v for k, v in all_args.items() if k in default_args and v == default_args[k]}
+    log_path = os.path.join(log_dir, 'function_args_log.txt')
+    with open(log_path, 'w') as f:
+        f.write("Non-default args:\n")
+        if non_default_args:
+            for k, v in non_default_args.items():
+                f.write(f"- {k}: {v}\n")
+        else:
+            f.write("- None\n")
+        f.write("\nDefault args:\n")
+        for k, v in default_used_args.items():
+            f.write(f"- {k}: {v}\n")
 
     def get_segmentation_state_label(time_interval, segmentation_state):
         if time_interval < 50:
@@ -518,6 +538,27 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
     Notes:
         Plots and statistical summaries are saved in the 'results/analysisMetrics' directory under `root_directory`.
     """
+
+    # logging the arguments
+    log_dir = os.path.join(root_directory, 'results', '_'.join(sample_labels) + '_perFOV_results', 'analysisMetrics')
+    os.makedirs(log_dir, exist_ok=True)
+    sig = inspect.signature(batchProcess_analysisMetrics)
+    default_args = {k: v.default for k, v in sig.parameters.items() if v.default is not inspect.Parameter.empty}
+    all_args = {k: locals()[k] for k in sig.parameters if k in locals()}
+    non_default_args = {k: v for k, v in all_args.items() if k in default_args and v != default_args[k]}
+    default_used_args = {k: v for k, v in all_args.items() if k in default_args and v == default_args[k]}
+    log_path = os.path.join(log_dir, 'function_args_log.txt')
+    with open(log_path, 'w') as f:
+        f.write("Non-default args:\n")
+        if non_default_args:
+            for k, v in non_default_args.items():
+                f.write(f"- {k}: {v}\n")
+        else:
+            f.write("- None\n")
+        f.write("\nDefault args:\n")
+        for k, v in default_used_args.items():
+            f.write(f"- {k}: {v}\n")
+
 
     def define_ylabel_units(column_heading):
         if column_heading == 'num_2Dlocs_perframe':
