@@ -55,7 +55,7 @@ def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, 
 
     
     if rgb_list == None:
-        base_colors = ['slateblue', 'indianred', 'peru', 'teal', 'saddlebrown', 'darkolivegreen', 'palevioletred', 'slategray', 'gray', 'olive', 'cyan']
+        base_colors = ['slateblue', 'indianred', 'seagreen', 'peru', 'steelblue', 'palevioletred', 'teal', 'slategray', 'gray', 'olive', 'cyan']
         rgb_list = [base_colors[i % len(base_colors)] for i in range(len(distribution_lists))]
 
     if ylabel == None:
