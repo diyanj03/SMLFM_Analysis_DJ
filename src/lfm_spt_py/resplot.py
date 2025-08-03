@@ -43,8 +43,8 @@ def extract_biophysical_param(results_dir, param, conf_or_unconf_or_all):
 
 
 def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, unit = None,
-                   scatter_transparency=0.5, boxplot_shade_transparency=0.2, boxplot_line_width=2,
-                   figWidth= 0.9, figHeight = 4.8, boxplot_widths = 0.6, jitter_std=0.1,
+                   scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                   figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                    xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 13, axesThickness = 2, 
                    show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
                    annotationLineWidth = 2, annotationFontSize = 12,
@@ -55,7 +55,7 @@ def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, 
 
     
     if rgb_list == None:
-        base_colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        base_colors = ['slateblue', 'indianred', 'peru', 'teal', 'saddlebrown', 'darkolivegreen', 'palevioletred', 'slategray', 'gray', 'olive', 'cyan']
         rgb_list = [base_colors[i % len(base_colors)] for i in range(len(distribution_lists))]
 
     if ylabel == None:
@@ -354,8 +354,8 @@ def get_max_min_ylim(results_dir_list, param, show_annotations, annotationBaseGa
 
 def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
                             sync_axes=True, time_interval=500,
-                            scatter_transparency=0.5, boxplot_shade_transparency=0.2, boxplot_line_width=2,
-                            figWidth= 0.9, figHeight = 4.8, boxplot_widths = 0.6, jitter_std=0.1,
+                            scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                            figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                             xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 12, axesThickness = 2, 
                             show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
                             annotationLineWidth = 2, annotationFontSize = 12,
@@ -451,7 +451,7 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
                 distribution_lists = [extract_biophysical_param(results_dir, param, seg_state) for results_dir in results_dir_list]
                 seg_state_label = get_segmentation_state_label(time_interval, seg_state)
                 unit = get_unit(param)
-                ylabel = f'Mean {param} - {seg_state_label} Trajectories {unit}'
+                ylabel = f'Mean {param} - {seg_state_label} Trajectories ({unit})'
                 dst_dir = os.path.join(results_dir, '_'.join(sample_labels) + '_perFOV_results', param, seg_state)
                 
                 force_ylim_max = None
@@ -480,8 +480,8 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
     print(f"Successfully saved plots and stats of biophysical params to {os.path.join(results_dir, '_'.join(sample_labels) + '_perFOV_results')}")
 
 def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
-                   scatter_transparency=0.5, boxplot_shade_transparency=0.2, boxplot_line_width=2,
-                   figWidth= 0.9, figHeight = 4.8, boxplot_widths = 0.6, jitter_std=0.1,
+                   scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                   figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                    xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 13, axesThickness = 2, 
                    show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
                    annotationLineWidth = 2, annotationFontSize = 12,
