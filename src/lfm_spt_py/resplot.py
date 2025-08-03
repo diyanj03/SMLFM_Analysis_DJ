@@ -43,7 +43,7 @@ def extract_biophysical_param(results_dir, param, conf_or_unconf_or_all):
 
 
 def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, unit = None,
-                   scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                   scatter_transparency=0.8, boxplot_shade_transparency=0.45, boxplot_line_width=2,
                    figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                    xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 13, axesThickness = 2, 
                    show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
@@ -354,7 +354,7 @@ def get_max_min_ylim(results_dir_list, param, show_annotations, annotationBaseGa
 
 def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
                             sync_axes=True, time_interval=500,
-                            scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                            scatter_transparency=0.8, boxplot_shade_transparency=0.45, boxplot_line_width=2,
                             figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                             xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 12, axesThickness = 2, 
                             show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
@@ -480,7 +480,7 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
     print(f"Successfully saved plots and stats of biophysical params to {os.path.join(results_dir, '_'.join(sample_labels) + '_perFOV_results')}")
 
 def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
-                   scatter_transparency=0.8, boxplot_shade_transparency=0.4, boxplot_line_width=2,
+                   scatter_transparency=0.8, boxplot_shade_transparency=0.45, boxplot_line_width=2,
                    figWidth= 0.8, figHeight = 4.8, boxplot_widths = 0.7, jitter_std=0.1127,
                    xTickRotationAngle = 45, tickLabelSize = 12, yLabelFontSize = 13, axesThickness = 2, 
                    show_annotations = True, annotationBaseGap=0.08, annotationStackGap=0.1, annotationTextGap = 0.0,
