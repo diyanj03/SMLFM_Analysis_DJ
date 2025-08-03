@@ -148,7 +148,7 @@ def diffConst(matlab_results_dir):
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
         if '_locs3D_cropped' in x:
-            x.replace('_locs3D_cropped', '')
+            x = x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_diffConst_dict[dataset_name] = np.mean(df_perfov['diffusionConst'])
 
@@ -168,7 +168,7 @@ def anomalous_exp(matlab_results_dir):
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
         if '_locs3D_cropped' in x:
-            x.replace('_locs3D_cropped', '')
+            x = x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['alpha'])
 
@@ -188,7 +188,7 @@ def driftMagnitude(matlab_results_dir):
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
         if '_locs3D_cropped' in x:
-            x.replace('_locs3D_cropped', '')
+            x = x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['driftMagnitude'])
 
@@ -208,7 +208,7 @@ def Lc(matlab_results_dir):
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
         if '_locs3D_cropped' in x:
-            x.replace('_locs3D_cropped', '')
+            x = x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['Lc'])
 
