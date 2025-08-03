@@ -103,13 +103,19 @@ def numTracks(input_dir):
     if not os.path.exists(input_dir):
         print(f"[FAIL] Tracks dir not found: {input_dir}")
         return df_tracks
-
-    for file in os.listdir(input_dir):
-        if file.endswith('positionsFramesIntensity.csv'):
-            df = pd.read_csv(os.path.join(input_dir, file), low_memory=False)
-            numtracks = len(df)
-            dataset_name = file.split('_positionsFramesIntensity.csv')[0]
-            df_tracks[dataset_name] = numtracks
+    
+    matching_files = [f for f in os.listdir(input_dir) if f.endswith('positionsFramesIntensity.csv')]
+    
+    if not matching_files:
+        raise FileNotFoundError(f"Warning: No files ending with '_positionsFramesIntensity.csv' found in: {input_dir} so tracks column will be empty.")
+    
+    if matching_files:
+        for file in os.listdir(input_dir):
+            if file.endswith('positionsFramesIntensity.csv'):
+                df = pd.read_csv(os.path.join(input_dir, file), low_memory=False)
+                numtracks = len(df)
+                dataset_name = file.split('_positionsFramesIntensity.csv')[0]
+                df_tracks[dataset_name] = numtracks
 
     return df_tracks
 

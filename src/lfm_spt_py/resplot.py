@@ -596,7 +596,7 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
         for path in csv_list:
             df = pd.read_csv(path)
             if column_heading not in df.columns:
-                print(f"Column '{column_heading}' not found in {path}, skipping this parameter.")
+                print(f"Warning: '{column_heading}' not found in {path}, skipping this parameter.")
                 skip_column = True
                 break
             values = df[column_heading].dropna().tolist()
@@ -612,8 +612,8 @@ def batchProcess_analysisMetrics(csv_list, sample_labels, root_directory,
         if skip_column:
             continue
 
-        if all(len(lst) == 0 for lst in distribution_lists):
-            print(f"No data found for column '{column_heading}', skipping.")
+        if any(len(lst) == 0 for lst in distribution_lists):
+            print(f"Warning: at least one sample has no data for '{column_heading}', skipping this parameter.")
             continue
 
         ylabel, unit = define_ylabel_units(column_heading)
