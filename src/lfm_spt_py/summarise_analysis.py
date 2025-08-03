@@ -123,7 +123,11 @@ def perfConf(matlab_results_dir):
     
     df = pd.read_csv(perfovstats_filepath)
     confPerc_list = df['confPerc'].fillna(0).where(df['confPerc'] >= 0, 0)
-    sample_list_editted = df['originDataset'].str.replace('_trackPositions.csv', '', regex=False)
+    sample_list_editted = (
+        df['originDataset']
+        .str.replace('_trackPositions.csv', '', regex=False)
+        .str.replace('_locs3D_cropped', '', regex=False)
+        )
     confPerc_list = confPerc_list[confPerc_list.notna() & (confPerc_list >= 0)].tolist()
     
     dict_confPerc = dict(zip(sample_list_editted, confPerc_list))
@@ -143,6 +147,8 @@ def diffConst(matlab_results_dir):
 
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
+        if '_locs3D_cropped' in x:
+            x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_diffConst_dict[dataset_name] = np.mean(df_perfov['diffusionConst'])
 
@@ -161,6 +167,8 @@ def anomalous_exp(matlab_results_dir):
 
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
+        if '_locs3D_cropped' in x:
+            x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['alpha'])
 
@@ -179,6 +187,8 @@ def driftMagnitude(matlab_results_dir):
 
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
+        if '_locs3D_cropped' in x:
+            x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['driftMagnitude'])
 
@@ -197,6 +207,8 @@ def Lc(matlab_results_dir):
 
     for x in (df['originDataset']).unique():
         df_perfov = df[df['originDataset'] == x]
+        if '_locs3D_cropped' in x:
+            x.replace('_locs3D_cropped', '')
         dataset_name = x.replace('_trackPositions.csv', '')
         avg_alpha_dict[dataset_name] = np.mean(df_perfov['Lc'])
 
