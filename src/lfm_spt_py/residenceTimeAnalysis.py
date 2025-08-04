@@ -13,6 +13,10 @@ import warnings
 
 rgb_list_main = ['crimson', 'darkgreen', 'navy', 'chocolate', 'purple', 'gold', 'cyan']
 
+# plots set xlim_max when the counts reach a 0 or two consecutive 1 and all counts after that are less than or equal to stopPlotConst
+# this doesn't affect fitting, only applied for plot aesthetics. 
+stopPlotConst = 2 
+
 def compute_rss_bic(model_func, xdata, ydata, popt):
     """
     Compute Bayesian Information Criterion (BIC) for a fitted model. 
@@ -67,10 +71,10 @@ def find_first_valid_index(lst):
     n = len(lst)
     for i in range(n):
         if lst[i] == 0:
-            if all(x <= 3 for x in lst[i+1:]):
+            if all(x <= stopPlotConst for x in lst[i+1:]):
                 return i
         elif lst[i] == 1 and i + 1 < n and lst[i+1] == 1:
-            if all(x <= 3 for x in lst[i+2:]):
+            if all(x <= stopPlotConst for x in lst[i+2:]):
                 return i+1
     return -1
 
@@ -966,8 +970,8 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
     bounds_double = ([0.0] * len(tau_tl_values) + [(1-cap_B_value), koff_lower, koff_lower, 0.0],
                      upper_bounds + [cap_B_value, koff_upper, koff_upper, np.inf])
     
-    low_bounds = np.array(bounds_double[0], dtype=float)
-    up_bounds = np.array(bounds_double[1], dtype=float)
+    # low_bounds = np.array(bounds_double[0], dtype=float)
+    # up_bounds = np.array(bounds_double[1], dtype=float)
 
     # p0_double = A_guesses.tolist() + [0.5, koff_guess, koff_guess*10, kb_guess]
 
