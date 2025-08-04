@@ -118,7 +118,7 @@ def extract_counts(tracks_dict):
 def compute_keffs(counts_dict,
                   plot_semilog=True, rgb_list=None,
                   scatter_transparency = 0.6, fit_lineWidth = 2,
-                  axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                  axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                   legend_fontSize = 12, legend_titleFontSize = 14,
                   figWidth = 6, figHeight = 5, title_fontSize=15):
     """
@@ -212,7 +212,7 @@ def compute_keffs(counts_dict,
 
 def compute_koff(keff_dict, tau_int,
                  rgb_list=None, lin_scatter_markersize=7.5, lin_force_scatter_black = False,
-                 lin_axes_lineWidth=1.5, lin_axisLabel_fontSize=14, lin_tickLabel_fontsize=12,
+                 lin_axes_lineWidth=2, lin_axisLabel_fontSize=14, lin_tickLabel_fontsize=12,
                  lin_figWidth = 5, lin_figHeight = 4, lin_force_ylim_upper = None, lin_force_ylim_0 = True, lin_title_fontSize=14,
                  lin_show_error_band=True, lin_confidence_multiplier=3, lin_conf_band_colour=None, lin_conf_band_transparency=0.3,
                  lin_fitColour=None):
@@ -388,7 +388,7 @@ def main_sequentialFit(input_dict: dict, tau_int: float, sample_name: str, root_
     lin_force_scatter_black : bool, optional
         If True, forces scatter points in the linear koff plot to be black (default is False).
     lin_axes_lineWidth : float, optional
-        Width of the plot axes lines (default is 1.5).
+        Width of the plot axes lines (default is 2).
     lin_axisLabel_fontSize : int, optional
         Font size for the axis labels (default is 14).
     lin_tickLabel_fontsize : int, optional
@@ -617,7 +617,7 @@ def get_singleExp_params(counts_dict, tau_int):
 def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog=True, min_residence_time=0.0, cap_residence_time=np.inf,
                      rgb_list=None,
                      scatter_transparency = 0.6, fit_lineWidth = 2,
-                     axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                     axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                      legend_fontSize = 12, legend_titleFontSize = 14,
                      figWidth = 6, figHeight = 5, title_fontSize=15):
     
@@ -765,7 +765,7 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog
 def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int, plot_semilog=True,
                                 rgb_list=None, show_singleCell_plots=False,
                                 scatter_transparency = 0.6, fit_lineWidth = 2,
-                                axes_lineWidth=1.5, axisLabel_fontSize=13, tickLabel_fontsize=12,
+                                axes_lineWidth=2.0, axisLabel_fontSize=13, tickLabel_fontsize=12,
                                 legend_fontSize = 12, legend_titleFontSize = 14,
                                 figWidth = 5, figHeight = 4, title_fontSize=13):
     """
@@ -915,7 +915,7 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int, plot_semilog=Tr
 def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl_weights=True, plot_semilog=True, cap_B_value=0.999, min_residence_time=0.0, cap_residence_time=np.inf,
                      rgb_list=None,
                      scatter_transparency = 0.6, fit_lineWidth = 2,
-                     axes_lineWidth=1.5, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                     axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                      legend_fontSize = 12, legend_titleFontSize = 14,
                      figWidth = 6, figHeight = 5, title_fontSize=15):
 
@@ -1097,7 +1097,7 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
 def compute_Bval_perCell_double(tracks_dict, koff1, koff2, kb, tau_int,
                                 plot_semilog=True, rgb_list=None, show_singleCell_plots=False,
                                 scatter_transparency = 0.6, fit_lineWidth = 2,
-                                axes_lineWidth=1.5, axisLabel_fontSize=13, tickLabel_fontsize=12,
+                                axes_lineWidth=2.0, axisLabel_fontSize=13, tickLabel_fontsize=12,
                                 legend_fontSize = 12, legend_titleFontSize = 14,
                                 figWidth = 5, figHeight = 4, title_fontSize=13):
     """
@@ -1259,7 +1259,7 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
     fit_lineWidth : int, optional
         Width of the fit line (default is 2).
     axes_lineWidth : float, optional
-        Width of the plot axes lines (default is 1.5).
+        Width of the plot axes lines (default is 2.0).
     axisLabel_fontSize : int, optional
         Font size for the axis labels (default is 14).
     tickLabel_fontsize : int, optional
