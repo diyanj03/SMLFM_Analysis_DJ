@@ -279,56 +279,50 @@ def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, 
 
 def get_ylims(distribution_lists, show_annotations, annotationBaseGap, annotationStackGap, force_ylim_0,):
 
-    if len(distribution_lists) == 1:
-        show_annotations = False
-
     max_vals = [np.max(data) for data in distribution_lists]
     min_vals = [np.min(data) for data in distribution_lists]
-
     maxx_val = max(max_vals)
-    minn_val = 0 if force_ylim_0 else min(min_vals)
+    minn_val = min(min_vals)
 
     base_gap = (maxx_val - minn_val) * annotationBaseGap
     stack_gap = (maxx_val - minn_val) * annotationStackGap
 
-    all_values = np.concatenate(distribution_lists)
+    annotations = []
+    for i in range(len(distribution_lists)):
+        for j in range(i + 1, len(distribution_lists)):
+            local_max = max(max_vals[i], max_vals[j])
+            y = local_max + base_gap
 
-    if show_annotations:
-        sample_labels = [str(i) for i in range(len(distribution_lists))]
-        annotations = []
-        for i in range(len(distribution_lists)):
-            for j in range(i + 1, len(distribution_lists)):
-                x1, x2 = i + 1, j + 1
-                local_max = max(max_vals[i], max_vals[j])
-                y = local_max + base_gap
+            intermediate_indices = [k for k in range(len(distribution_lists)) if i < k < j]
+            if intermediate_indices:
+                intermediate_max = max(max_vals[k] for k in intermediate_indices)
+                if intermediate_max + base_gap > y:
+                    y = intermediate_max + base_gap
 
-                intermediate_indices = [k for k in range(len(distribution_lists)) if x1 < (k + 1) < x2]
-                if intermediate_indices:
-                    intermediate_max = max([max_vals[k] for k in intermediate_indices])
-                    if intermediate_max + base_gap > y:
-                        y = intermediate_max + base_gap
+            annotations.append({'y': y})
 
-                annotations.append({'x1': x1, 'x2': x2, 'y': y})
+    annotations.sort(key=lambda x: x['y'])
+    for idx in range(1, len(annotations)):
+        if annotations[idx]['y'] - annotations[idx - 1]['y'] < stack_gap:
+            annotations[idx]['y'] = annotations[idx - 1]['y'] + stack_gap
 
-        annotations.sort(key=lambda x: x['y'])
-        for idx in range(1, len(annotations)):
-            if annotations[idx]['y'] - annotations[idx - 1]['y'] < stack_gap:
-                annotations[idx]['y'] = annotations[idx - 1]['y'] + stack_gap
-
-        max_annotation_y = max(a['y'] for a in annotations) if annotations else max(all_values)
+    if show_annotations and annotations:
+        extra_text_gap = 0.25 * stack_gap
+        max_annotation_y = annotations[-1]['y'] + extra_text_gap
     else:
-        max_annotation_y = max(all_values)
+        max_annotation_y = maxx_val
 
     if force_ylim_0:
-        padding = 0.1 * (np.max(all_values) - 0)
+        padding = 0.1 * (maxx_val - 0)
         lower_limit = 0
+        upper_limit = max_annotation_y + padding
     else:
-        padding = 0.1 * (np.max(all_values) - np.min(all_values))
-        lower_limit = np.min(all_values) - padding
+        padding = 0.1 * (maxx_val - minn_val)
+        lower_limit = minn_val - padding
+        upper_limit = max_annotation_y + padding
 
-    upper_limit = max_annotation_y + padding
+    return (lower_limit, upper_limit)
 
-    return lower_limit, upper_limit
 
 def get_max_min_ylim(results_dir_list, param, show_annotations, annotationBaseGap, annotationStackGap, force_ylim_0):
     distribution_lists_unconf = [extract_biophysical_param(results_dir, param, 'Unconfined') for results_dir in results_dir_list]
@@ -470,8 +464,9 @@ def batchProcess_4Pparams(results_dir_list, sample_labels, root_directory,
                 # print(f'\n{seg_state}:')
                 distribution_lists = [extract_biophysical_param(results_dir, param, seg_state) for results_dir in results_dir_list]
                 seg_state_label = get_segmentation_state_label(time_interval, seg_state)
-                unit = get_unit(param)
-                ylabel = f'Mean {param} - {seg_state_label} Trajectories ({unit})'
+                unit = f'({get_unit(param)})'
+
+                ylabel = f'Mean {param} {unit} - {seg_state_label} Trajectories'
                 dst_dir = os.path.join(results_dir, '_'.join(sample_labels) + '_perFOV_results', param, seg_state)
                 
                 force_ylim_max = None
