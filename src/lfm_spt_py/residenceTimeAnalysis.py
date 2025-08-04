@@ -995,12 +995,9 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
 
     p0_double = A_guesses.tolist() + [0.5, p0_koff1, p0_koff2, p0_kb]
 
-    print("p0_double:", p0_double)
-    print("lower_bounds:", low_bounds)
-    print("upper_bounds:", up_bounds)
-    # print("Clipped within bounds:",
-    #     np.all(p0_double > up_bounds + epsilon),
-    #     np.all(p0_double < up_bounds - epsilon))
+    # print("p0_double:", p0_double)
+    # print("lower_bounds:", low_bounds)
+    # print("upper_bounds:", up_bounds)
 
     if balance_tl_weights:
         # Equalise the influence of each tau_tl group
