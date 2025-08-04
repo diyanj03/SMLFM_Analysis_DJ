@@ -217,7 +217,10 @@ def jitter_boxplot(distribution_lists, sample_labels, parameter, ylabel = None, 
         max_annotation_y = 0
         for ann in annotations:
             plt.plot([ann['x1'], ann['x2']], [ann['y'], ann['y']], color='black', linewidth=annotationLineWidth)
-            plt.text((ann['x1'] + ann['x2']) / 2, ann['y'] + annotationTextGap, ann['sig_symbol'], ha='center', va='bottom', fontsize = annotationFontSize)
+            if ann['sig_symbol'] == 'ns':
+                plt.text((ann['x1'] + ann['x2']) / 2, ann['y'] + annotationTextGap, ann['sig_symbol'], ha='center', va='bottom', fontsize=annotationFontSize)
+            else: 
+                plt.text((ann['x1'] + ann['x2']) / 2, ann['y'] + annotationTextGap, ann['sig_symbol'], ha='center', va='baseline', fontsize=annotationFontSize)
             max_annotation_y = max(max_annotation_y, ann['y'] + annotationTextGap + 0.25*stack_gap)
     else:
         max_annotation_y = np.max(all_values)
