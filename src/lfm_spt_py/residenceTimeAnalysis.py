@@ -210,7 +210,7 @@ def compute_koff(keff_dict, tau_int,
                  rgb_list=None, lin_scatter_markersize=7.5, lin_force_scatter_black = False,
                  lin_axes_lineWidth=1.5, lin_axisLabel_fontSize=14, lin_tickLabel_fontsize=12,
                  lin_figWidth = 5, lin_figHeight = 4, lin_force_ylim_upper = None, lin_force_ylim_0 = True, lin_title_fontSize=14,
-                 lin_show_error_band=True, lin_confidence_multiplier=1, lin_conf_band_colour=None, lin_conf_band_transparency=0.3,
+                 lin_show_error_band=True, lin_confidence_multiplier=3, lin_conf_band_colour=None, lin_conf_band_transparency=0.3,
                  lin_fitColour=None):
     """
     Weighted linear fit of keff * tau_tl vs tau_tl using keff std errors as weights.
@@ -662,9 +662,20 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog
     else: 
         koff_lower = 1/cap_residence_time
 
-    p0_single = list(A_guesses) + [koff_guess, kb_guess]
     bounds_single = ([0.0] * len(tau_tl_values) + [koff_lower, 0.0],
                      [np.inf] * len(tau_tl_values) + [koff_upper, np.inf])
+
+    # p0_single = list(A_guesses) + [koff_guess, kb_guess]
+    p0_koff = koff_guess
+    if koff_guess < koff_lower:
+        p0_koff = koff_lower
+    if koff_guess > koff_upper:
+        p0_koff = koff_upper
+    
+
+    p0_kb = max(kb_guess, 0.0)
+    
+    p0_single = list(A_guesses) + [p0_koff, p0_kb]
 
     if balance_tl_weights:
         # Equalise the influence of each tau_tl group
@@ -940,7 +951,6 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
     # curve_fit
     A_guesses,koff_guess,kb_guess = get_singleExp_params(counts_dict, tau_int)
 
-    p0_double = A_guesses.tolist() + [0.5, koff_guess, koff_guess*10, kb_guess]
     upper_bounds = (A_guesses*amplitude_multiplier).tolist()
     
     if min_residence_time == 0:
@@ -955,6 +965,42 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
     
     bounds_double = ([0.0] * len(tau_tl_values) + [(1-cap_B_value), koff_lower, koff_lower, 0.0],
                      upper_bounds + [cap_B_value, koff_upper, koff_upper, np.inf])
+    
+    low_bounds = np.array(bounds_double[0], dtype=float)
+    up_bounds = np.array(bounds_double[1], dtype=float)
+
+    # p0_double = A_guesses.tolist() + [0.5, koff_guess, koff_guess*10, kb_guess]
+
+    koff_guess_upper = koff_guess*10
+    p0_koff1 = koff_guess
+    p0_koff2 = koff_guess*10
+
+    if koff_guess < koff_lower:
+        p0_koff1 = koff_lower
+        p0_koff2 = koff_lower*10
+        if p0_koff2 > koff_upper:
+            p0_koff2 = koff_upper
+
+    if koff_guess > koff_upper:
+        p0_koff1 = koff_upper/2
+        p0_koff2 = koff_upper
+
+    if koff_guess_upper > koff_upper and koff_guess < koff_upper:
+        p0_koff2 = koff_guess_upper 
+        if p0_koff1 > p0_koff2/2:
+            p0_koff1 = p0_koff2/2
+
+
+    p0_kb = max(kb_guess, 0.0)
+
+    p0_double = A_guesses.tolist() + [0.5, p0_koff1, p0_koff2, p0_kb]
+
+    print("p0_double:", p0_double)
+    print("lower_bounds:", low_bounds)
+    print("upper_bounds:", up_bounds)
+    # print("Clipped within bounds:",
+    #     np.all(p0_double > up_bounds + epsilon),
+    #     np.all(p0_double < up_bounds - epsilon))
 
     if balance_tl_weights:
         # Equalise the influence of each tau_tl group
