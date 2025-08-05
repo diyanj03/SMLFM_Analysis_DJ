@@ -120,7 +120,8 @@ def compute_keffs(counts_dict,
                   scatter_transparency = 0.6, fit_lineWidth = 2,
                   axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                   legend_fontSize = 12, legend_titleFontSize = 14,
-                  figWidth = 6, figHeight = 5, title_fontSize=15, ylim_min=None, ylim_max=None):
+                  figWidth = 6, figHeight = 5, title_fontSize=15,
+                  ylim_min=None, ylim_max=None, xlim_max=None):
     """
     Input raw counts for each timelapse interval for calculating keffs.
     Args:
@@ -188,6 +189,8 @@ def compute_keffs(counts_dict,
     
     if ylim_min is not None or ylim_max is not None:
         ax.set_ylim(bottom=ylim_min, top=ylim_max)
+    if xlim_max is not None:
+        ax.set_xlim(right=xlim_max)
 
     ax.set_xlabel(r"Time (seconds)")
     ax.set_ylabel("Fraction Surviving")
@@ -372,6 +375,8 @@ def main_sequentialFit(input_dict: dict, tau_int: float, sample_name: str, root_
         minimum y value for keff plot
     ylim_max : float, optional
         maximum y value for keff plot
+    xlim_max : float, optional
+        maximum x value for keff plot
     fit_lineWidth : int, optional
         Width of the fit line (default is 2).
     axes_lineWidth : float, optional
@@ -423,7 +428,7 @@ def main_sequentialFit(input_dict: dict, tau_int: float, sample_name: str, root_
     """
     output95CI = False
     koff_keys = {'rgb_list', 'lin_scatter_markersize', 'lin_force_scatter_black', 'lin_axes_lineWidth', 'lin_axisLabel_fontSize', 'lin_tickLabel_fontsize', 'lin_figWidth', 'lin_figHeight', 'lin_force_ylim_upper', 'lin_force_ylim_0', 'lin_title_fontSize', 'lin_show_error_band', 'lin_confidence_multiplier', 'lin_conf_band_colour', 'lin_conf_band_transparency', 'lin_fitColour'}
-    keff_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize', 'ylim_min', 'ylim_max'}
+    keff_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize', 'ylim_min', 'ylim_max', 'xlim_max'}
     
     allowed_keys = koff_keys | keff_keys
     unknown_keys = set(kwargs) - allowed_keys
@@ -626,7 +631,8 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog
                      scatter_transparency = 0.6, fit_lineWidth = 2,
                      axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                      legend_fontSize = 12, legend_titleFontSize = 14,
-                     figWidth = 6, figHeight = 5, title_fontSize=15, ylim_min = None, ylim_max = None):
+                     figWidth = 6, figHeight = 5, title_fontSize=15,
+                     ylim_min = None, ylim_max = None, xlim_max = None):
     
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -740,6 +746,8 @@ def global_singleExp(counts_dict, tau_int, balance_tl_weights=True, plot_semilog
 
     if ylim_min is not None or ylim_max is not None:
         ax.set_ylim(bottom=ylim_min, top=ylim_max)
+    if xlim_max is not None:
+        ax.set_xlim(right=xlim_max)
     
     ax.set_xlabel(r"Time (seconds)")
     ax.set_ylabel("Fraction Surviving")
@@ -883,6 +891,8 @@ def compute_keffs_perCell_single(tracks_dict, kb_value, tau_int, plot_semilog=Tr
 
             ax_indiv.set_title(f"Cell={len(koff_values)+1}, $\\tau_{{\\mathrm{{tl}}}}$ = {tau_tl}s, numtracks = {total_count}", fontsize = title_fontSize)
             ax_indiv.legend(fontsize=legend_fontSize)
+            fig_indiv.tight_layout()
+
             if not show_singleCell_plots:
                 plt.close(fig_indiv)
 
@@ -927,7 +937,8 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
                      scatter_transparency = 0.6, fit_lineWidth = 2,
                      axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
                      legend_fontSize = 12, legend_titleFontSize = 14,
-                     figWidth = 6, figHeight = 5, title_fontSize=15, ylim_min = None, ylim_max = None):
+                     figWidth = 6, figHeight = 5, title_fontSize=15,
+                     ylim_min = None, ylim_max = None, xlim_max = None):
 
     tau_tl_values = sorted(counts_dict.keys())
     t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
@@ -1000,10 +1011,9 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
         p0_koff2 = koff_upper
 
     if koff_guess_upper > koff_upper and koff_guess < koff_upper:
-        p0_koff2 = koff_guess_upper 
+        p0_koff2 = koff_upper 
         if p0_koff1 > p0_koff2/2:
             p0_koff1 = p0_koff2/2
-
 
     p0_kb = max(kb_guess, 0.0)
 
@@ -1068,12 +1078,22 @@ def global_doubleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl
         ax3.scatter(actual_x, perc_surv_trunc,color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label=f'{tau_tl}s data',zorder=4)
         ax3.plot(fit_x, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f'{tau_tl}s fit', zorder=3)
     
-    if ylim_min is not None or ylim_max is not None:
-        ax3.set_ylim(bottom=ylim_min, top=ylim_max)
     ax3.set_xscale('log')
     if plot_semilog:
         ax3.set_yscale('log')
         ax3.set_xscale('linear')
+    
+    (bottom_curr, top_curr) = ax3.get_ylim()
+
+    if ylim_min:
+        bottom_curr = ylim_min
+    if ylim_max:
+        top_curr = ylim_max
+    
+    ax3.set_ylim(bottom=bottom_curr, top=top_curr)
+
+    if xlim_max is not None:
+        ax3.set_xlim(right=xlim_max)
 
     ax3.set_xlabel(r"Time (seconds)")
     ax3.set_ylabel("Fraction Surviving")
@@ -1213,6 +1233,7 @@ def compute_Bval_perCell_double(tracks_dict, koff1, koff2, kb, tau_int,
 
             ax_indiv.set_title(f"Cell={len(B_values)+1}, $\\tau_{{\\mathrm{{tl}}}}$ = {tau_tl}s, numtracks = {total_count}", fontsize = title_fontSize)
             ax_indiv.legend(fontsize=legend_fontSize)
+            fig_indiv.tight_layout()
             if not show_singleCell_plots:
                 plt.close(fig_indiv)
             
@@ -1263,9 +1284,11 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
     cap_B_value : float, optional 
         a maximum fraction of one population over the other in doubleExpFit (default is 0.999)
     ylim_min : float, optional
-        minimum value of the plot
-    ylim : float, optional
-        maximum value  
+        minimum y value of the plot
+    ylim_max : float, optional
+        maximum y value of the plot
+    xlim_max : float, optional
+        maximum x value of the plot
     show_singleCell_plots : bool, optional
         whether to display all single cell plots when calling this (default is False)
     amplitude_multiplier : (float, optional)
@@ -1309,7 +1332,7 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
 
     single_keys = {'balance_tl_weights', 'plot_semilog', 'min_residence_time', 'cap_residence_time'}
     double_keys = {'amplitude_multiplier', 'balance_tl_weights', 'plot_semilog', 'cap_B_value', 'min_residence_time', 'cap_residence_time'}
-    common_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize', 'ylim_min', 'ylim_max'}
+    common_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize', 'ylim_min', 'ylim_max', 'xlim_max'}
     singleCell_single_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
     singleCell_double_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
 
