@@ -1251,6 +1251,223 @@ def compute_Bval_perCell_double(tracks_dict, koff1, koff2, kb, tau_int,
 
 
 
+def global_tripleExp(counts_dict, tau_int, amplitude_multiplier=1000, balance_tl_weights=True, plot_semilog=True, cap_B_value=0.999, min_residence_time=0.0, cap_residence_time=np.inf,
+                     rgb_list=None,
+                     scatter_transparency = 0.6, fit_lineWidth = 2,
+                     axes_lineWidth=2.0, axisLabel_fontSize=14, tickLabel_fontsize=12,
+                     legend_fontSize = 12, legend_titleFontSize = 14,
+                     figWidth = 6, figHeight = 5, title_fontSize=15,
+                     ylim_min = None, ylim_max = None, xlim_max = None):
+
+    tau_tl_values = sorted(counts_dict.keys())
+    t_concat, counts_concat, tau_tl_concat, total_counts_concat = [], [], [], []
+
+    for i, tau_tl in enumerate(tau_tl_values):
+        counts_array, total_counts, _ = counts_dict[tau_tl]
+        if isinstance(counts_array, list):
+            counts_array = np.array(counts_array, dtype=np.int64)
+        t_vals = (np.arange(len(counts_array)) + 1) * tau_tl
+        t_concat.append(t_vals)
+        counts_concat.append(counts_array)
+        tau_tl_concat.append(np.full_like(t_vals, tau_tl))
+        total_counts_concat.append(np.full_like(t_vals, total_counts))
+
+    t_concat = np.concatenate(t_concat)
+    counts_concat = np.concatenate(counts_concat)
+    tau_tl_concat = np.concatenate(tau_tl_concat)
+
+    xdata = np.vstack((t_concat, tau_tl_concat))
+    ydata = counts_concat
+
+    def triple_exp_decay(x, *params):
+        t, tau_tl  = x
+        n = len(tau_tl_values)
+        A_coeffs = params[:n]
+        B1, B2, k_off1, k_off2, k_off3, k_b = params[-6:]
+        y = np.empty_like(t, dtype=float)
+        for i, tau in enumerate(tau_tl_values):
+            mask = tau_tl == tau
+            rate1 = (k_b * (tau_int / tau) + k_off1)
+            rate2 = (k_b * (tau_int / tau) + k_off2)
+            rate3 = (k_b * (tau_int / tau) + k_off3)
+            y[mask] = A_coeffs[i] * (
+                B1 * np.exp(-rate1 * t[mask]) +
+                B2 * np.exp(-rate2 * t[mask]) +
+                (1 - B1 - B2) * np.exp(-rate3 * t[mask])
+            )
+        return y
+
+    # curve_fit
+    A_guesses,koff_guess,kb_guess = get_singleExp_params(counts_dict, tau_int)
+
+    upper_bounds = (A_guesses*amplitude_multiplier).tolist()
+    
+    if min_residence_time == 0:
+        koff_upper = np.inf
+    else:
+        koff_upper = 1/min_residence_time
+
+    if cap_residence_time == np.inf:
+        koff_lower = 0.0
+    else: 
+        koff_lower = 1/cap_residence_time
+    
+    bounds_triple = (
+        [0.0] * len(tau_tl_values) + [0.0, 0.0, koff_lower, koff_lower, koff_lower, 0.0],
+        upper_bounds + [cap_B_value, cap_B_value, koff_upper, koff_upper, koff_upper, np.inf]
+    )
+
+    koff_guess_upper = koff_guess*10
+    p0_koff1 = koff_guess
+    p0_koff3 = koff_guess*10
+
+    if koff_guess < koff_lower:
+        p0_koff1 = koff_lower
+        p0_koff3 = koff_lower*10
+        if p0_koff3 > koff_upper:
+            p0_koff3 = koff_upper
+
+    if koff_guess > koff_upper:
+        p0_koff1 = koff_upper/2
+        p0_koff3 = koff_upper
+
+    if koff_guess_upper > koff_upper and koff_guess < koff_upper:
+        p0_koff3 = koff_upper 
+        if p0_koff1 > p0_koff3/2:
+            p0_koff1 = p0_koff3/2
+
+    p0_kb = max(kb_guess, 0.0)
+    p0_koff2 = p0_koff3/1.5
+
+    p0_triple = A_guesses.tolist() + [0.4, 0.3, p0_koff1, p0_koff2, p0_koff3, p0_kb]
+
+    if balance_tl_weights:
+        # Equalise the influence of each tau_tl group
+        weights = []
+        for tau_tl in tau_tl_values:
+            num_points = sum(tau_tl_concat == tau_tl)
+            weights.append(np.sqrt(num_points))
+        tau_to_sigma = {tau: w for tau, w in zip(tau_tl_values, weights)}
+        sigma = np.array([tau_to_sigma[tau] for tau in tau_tl_concat], dtype=float)
+
+        popt_triple, pcov_triple = curve_fit(
+            triple_exp_decay, xdata, ydata, p0=p0_triple,
+            maxfev=20000, bounds=bounds_triple,
+            sigma=sigma, absolute_sigma=False
+        )
+    else:
+        popt_triple, pcov_triple = curve_fit(
+            triple_exp_decay, xdata, ydata, p0=p0_triple,
+            maxfev=20000, bounds=bounds_triple
+        )
+
+    A_fits = popt_triple[:len(tau_tl_values)]
+    B1_fit, B2_fit, koff1_fit, koff2_fit, koff3_fit, kb_fit = popt_triple[-6:]
+    B1_se, B2_se, koff1_se, koff2_se, koff3_se, kb_se = np.sqrt(np.diag(pcov_triple)[-6:])
+
+    B3_fit = 1 - B1_fit - B2_fit
+    
+    if B3_fit < 0:
+        B3_fit = 0
+        total = B1_fit + B2_fit
+        if total > 0:
+            B1_fit /= total
+            B2_fit /= total
+        else:
+            # Avoid division by zero; assign equal fractions if both are zero
+            B1_fit = 0.5
+            B2_fit = 0.5
+
+    rates = np.array([koff1_fit, koff2_fit, koff3_fit])
+    fractions = np.array([B1_fit, B2_fit, 1 - B1_fit - B2_fit])
+    sorted_indices = np.argsort(rates)
+    rates_sorted = rates[sorted_indices]
+    fractions_sorted = fractions[sorted_indices]
+
+    koff1_fit, koff2_fit, koff3_fit = rates_sorted
+    B1_fit, B2_fit = fractions_sorted[:2]
+
+    # metrics - 95% CI + BIC
+    rss, bic = compute_rss_bic(triple_exp_decay, xdata, ydata, popt_triple)
+    B1_ci, B2_ci, koff1_ci, koff2_ci, koff3_ci, kb_ci = compute_all_CI(popt_triple, pcov_triple, len(ydata))[-6:]
+
+    # hist fit 
+    fig3, ax3 = plt.subplots(figsize = (figWidth, figHeight))
+
+    if rgb_list == None:
+        rgb_list = rgb_list_main[:len(counts_dict)]
+
+    for i, tau_tl in enumerate(tau_tl_values):
+        counts, total_counts, _ = counts_dict[tau_tl]
+        counts = np.array(counts)
+        perc_surv = counts / total_counts
+        idx_trunc = find_first_valid_index(counts)
+        perc_surv_trunc = perc_surv[:idx_trunc]
+        actual_x = (np.arange(len(perc_surv_trunc)) + 1) * tau_tl
+        fit_x = np.linspace(actual_x.min(), actual_x.max(), 200)
+        
+        rate1 = kb_fit * (tau_int / tau_tl) + koff1_fit
+        rate2 = kb_fit * (tau_int / tau_tl) + koff2_fit
+        rate3 = kb_fit * (tau_int / tau_tl) + koff3_fit
+
+
+        y_fit = A_fits[i] * (
+            B1_fit * np.exp(-rate1 * fit_x) +
+            B2_fit * np.exp(-rate2 * fit_x) +
+            (1 - B1_fit - B2_fit) * np.exp(-rate3 * fit_x)
+        ) / total_counts
+
+        ax3.scatter(actual_x, perc_surv_trunc,color=rgb_list[i], alpha=scatter_transparency, edgecolor='k', linewidth=0.5, label=f'{tau_tl}s data',zorder=4)
+        ax3.plot(fit_x, y_fit, color=rgb_list[i], alpha=1.0, linewidth=fit_lineWidth, label=f'{tau_tl}s fit', zorder=3)
+    
+    ax3.set_xscale('log')
+    if plot_semilog:
+        ax3.set_yscale('log')
+        ax3.set_xscale('linear')
+    
+    (bottom_curr, top_curr) = ax3.get_ylim()
+
+    if ylim_min:
+        bottom_curr = ylim_min
+    if ylim_max:
+        top_curr = ylim_max
+    
+    ax3.set_ylim(bottom=bottom_curr, top=top_curr)
+
+    if xlim_max is not None:
+        ax3.set_xlim(right=xlim_max)
+
+    ax3.set_xlabel(r"Time (seconds)")
+    ax3.set_ylabel("Fraction Surviving")
+
+    ax3.set_axisbelow(True)
+    ax3.grid(True, which='both', linestyle='--', linewidth=0.5, zorder=0)
+    ax3.tick_params(axis='both', which='major', labelsize=tickLabel_fontsize, width=2, length=6)  # bigger ticks and labels
+    ax3.xaxis.label.set_size(axisLabel_fontSize)  # x-axis label size
+    ax3.yaxis.label.set_size(axisLabel_fontSize)  # y-axis label size
+    for spine in ax3.spines.values():
+        spine.set_linewidth(axes_lineWidth)
+
+    handles = []
+    tau_tl_values = sorted(counts_dict.keys()) 
+    for i, tau_tl in enumerate(tau_tl_values):
+        handle = mlines.Line2D([], [], color=rgb_list[i], linestyle='-', linewidth=fit_lineWidth,
+                            marker='o', markerfacecolor=rgb_list[i], markeredgecolor='k',
+                            markeredgewidth=0.5, alpha=scatter_transparency, markersize=7, label=f'{tau_tl}')
+        handles.append(handle)
+
+    ax3.legend(handles=handles, title=r'$\tau_{\mathrm{tl}}$ (s)', fontsize=legend_fontSize, title_fontsize=legend_titleFontSize)
+    ax3.set_title(r'Triple-Exponential Decay - Global Fit', fontsize=title_fontSize)
+    fig3.tight_layout()
+
+    return (
+        (A_fits, B1_fit, B2_fit, koff1_fit, koff2_fit, koff3_fit, kb_fit),
+        (B1_se, B2_se, koff1_se, koff2_se, koff3_se, kb_se),
+        (B1_ci, B2_ci, koff1_ci, koff2_ci, koff3_ci, kb_ci),
+        (rss, bic),
+        fig3
+    )
+
 
 def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_directory : str = None, destination_directory : str = None, **kwargs : dict):
     """"
@@ -1332,12 +1549,14 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
 
     single_keys = {'balance_tl_weights', 'plot_semilog', 'min_residence_time', 'cap_residence_time'}
     double_keys = {'amplitude_multiplier', 'balance_tl_weights', 'plot_semilog', 'cap_B_value', 'min_residence_time', 'cap_residence_time'}
+    triple_keys = {'amplitude_multiplier', 'balance_tl_weights', 'plot_semilog', 'cap_B_value', 'min_residence_time', 'cap_residence_time'}
     common_keys = {'rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize', 'ylim_min', 'ylim_max', 'xlim_max'}
     singleCell_single_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
     singleCell_double_keys = {'show_singleCell_plots', 'plot_semilog','rgb_list', 'scatter_transparency', 'fit_lineWidth', 'axes_lineWidth', 'axisLabel_fontSize', 'tickLabel_fontsize', 'legend_fontSize', 'legend_titleFontSize', 'figWidth', 'figHeight', 'title_fontSize'}
 
     single_keys.update(common_keys)
     double_keys.update(common_keys)
+    triple_keys.update(common_keys)
 
     allowed_keys = single_keys | double_keys | singleCell_single_keys | singleCell_double_keys
     unknown_keys = set(kwargs) - allowed_keys
@@ -1346,11 +1565,19 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
 
     single_kwargs = {k: kwargs[k] for k in kwargs if k in single_keys}
     double_kwargs = {k: kwargs[k] for k in kwargs if k in double_keys}
+    triple_kwargs = {k: kwargs[k] for k in kwargs if k in triple_keys}
+
     singleCell_single_kwargs = {k: kwargs[k] for k in kwargs if k in singleCell_single_keys}
     singleCell_double_kwargs = {k: kwargs[k] for k in kwargs if k in singleCell_double_keys}
 
     (A_fits_s, koff_fit_s, kb_fit_s), (koff_se, kb_se), (koff_ci_s, kb_ci_s), (rss_s, bic_s),fig, = global_singleExp(counts_dict, tau_int, **single_kwargs)
     (A_fits_d, B_fit_d, koff1_fit_d, koff2_fit_d, kb_fit_d), (B_se, koff1_se, koff2_se, kb_se_d), (B_ci_d, koff1_ci_d, koff2_ci_d, kb_ci_d), (rss_d, bic_d), fig3 = global_doubleExp(counts_dict, tau_int, **double_kwargs)
+
+    (A_fits_t, B1_fit_t, B2_fit_t, koff1_fit_t, koff2_fit_t, koff3_fit_t, kb_fit_t), \
+    (B1_se_t, B2_se_t, koff1_se_t, koff2_se_t, koff3_se_t, kb_se_t), \
+    (B1_ci_t, B2_ci_t, koff1_ci_t, koff2_ci_t, koff3_ci_t, kb_ci_t), \
+    (rss_t, bic_t), fig4 = global_tripleExp(counts_dict, tau_int, **triple_kwargs)
+
 
     # save figures
     if destination_directory:
@@ -1372,6 +1599,11 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
         doubleExp_histfit_path2 = os.path.join(destination_dir, 'doubleExp_global_histFit.png')
         fig3.savefig(doubleExp_histfit_path2,dpi=600)
 
+        tripleExp_histfit_path_pdf = os.path.join(destination_dir, 'tripleExp_global_histFit.pdf')
+        fig4.savefig(tripleExp_histfit_path_pdf)
+        tripleExp_histfit_path_png = os.path.join(destination_dir, 'tripleExp_global_histFit.png')
+        fig4.savefig(tripleExp_histfit_path_png, dpi=600)
+
 
     def half_width_ci(ci):
         return (ci[1] - ci[0]) / 2
@@ -1383,6 +1615,18 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
     koff1_hw_d = half_width_ci(koff1_ci_d)
     koff2_hw_d = half_width_ci(koff2_ci_d)
     kb_hw_d = half_width_ci(kb_ci_d)
+
+    B1_hw_t = half_width_ci(B1_ci_t)
+    B2_hw_t = half_width_ci(B2_ci_t)
+    koff1_hw_t = half_width_ci(koff1_ci_t)
+    koff2_hw_t = half_width_ci(koff2_ci_t)
+    koff3_hw_t = half_width_ci(koff3_ci_t)
+    kb_hw_t = half_width_ci(kb_ci_t)
+
+    B3_fit_t = max(0, 1 - B1_fit_t - B2_fit_t) 
+    B3_se_t = (B1_se_t**2 + B2_se_t**2)**0.5  # approximate error propagation assuming independence
+    B3_ci_t = (max(0, 1 - B1_ci_t[1] - B2_ci_t[1]), max(0, 1 - B1_ci_t[0] - B2_ci_t[0]))  # inverted bounds for CI
+    B3_hw_t = half_width_ci(B3_ci_t)
 
     # txt output
     txt_out = f"=== Residence Time Analysis of {sample_name} - Results ===\n\n"
@@ -1410,19 +1654,33 @@ def main_globalFit(input_dict : dict, tau_int : int, sample_name : str, root_dir
     if output95CI:
         txt_out += f"-  Fraction of long-lived population (B): {B_fit_d:.3f} ± {B_hw_d:.3f} (95% CI)\n"
         txt_out += f"-  Slow dissociation rate (k_off1): {koff1_fit_d:.4f} ± {koff1_hw_d:.4f} s⁻¹\n"
-        txt_out += f"       → Estimated residence time: {1/koff1_fit_d:.2f} ± {((koff1_hw_d)/((koff1_fit_d)**2)):.4f} s\n"
+        txt_out += f"       → Residence time: {1/koff1_fit_d:.2f} ± {((koff1_hw_d)/((koff1_fit_d)**2)):.4f} s\n"
         txt_out += f"-  Fast dissociation rate (k_off2): {koff2_fit_d:.4f} ± {koff2_hw_d:.4f} s⁻¹\n"
-        txt_out += f"       → Estimated residence time: {1/koff2_fit_d:.2f} ± {((koff2_hw_d)/((koff2_fit_d)**2)):.4f} s\n"
+        txt_out += f"       → Residence time: {1/koff2_fit_d:.2f} ± {((koff2_hw_d)/((koff2_fit_d)**2)):.4f} s\n"
         txt_out += f"-  Photobleaching rate (k_b): {kb_fit_d:.4f} ± {kb_hw_d:.4f} s⁻¹\n"
     else:
         txt_out += f"-  Fraction of long-lived population (B): {B_fit_d:.3f} ± {B_se:.3f} (95% CI)\n"
         txt_out += f"-  Slow dissociation rate (k_off1): {koff1_fit_d:.4f} ± {koff1_se:.4f} s⁻¹\n"
-        txt_out += f"       → Estimated residence time: {1/koff1_fit_d:.2f} ± {((koff1_se)/((koff1_fit_d)**2)):.4f} s\n"
+        txt_out += f"       → Residence time: {1/koff1_fit_d:.2f} ± {((koff1_se)/((koff1_fit_d)**2)):.4f} s\n"
         txt_out += f"-  Fast dissociation rate (k_off2): {koff2_fit_d:.4f} ± {koff2_se:.4f} s⁻¹\n"
-        txt_out += f"       → Estimated residence time: {1/koff2_fit_d:.2f} ± {((koff2_se)/((koff2_fit_d)**2)):.4f} s\n"
+        txt_out += f"       → Residence time: {1/koff2_fit_d:.2f} ± {((koff2_se)/((koff2_fit_d)**2)):.4f} s\n"
         txt_out += f"-  Photobleaching rate (k_b): {kb_fit_d:.4f} ± {kb_se_d:.4f} s⁻¹\n"
     txt_out += f"-  Residual sum of squares: {rss_d:.4f}\n"
     txt_out += f"-  BIC value: {bic_d:.4f}\n"
+
+    txt_out += "\nResults from a global triple-exp decay fit:\n"
+    if output95CI:
+        txt_out += f"- Fractions: B1 = {B1_fit_t:.3f} ± {half_width_ci(B1_ci_t):.3f}, B2 = {B2_fit_t:.3f} ± {half_width_ci(B2_ci_t):.3f}, (1-B1-B2) = {B3_fit_t:.3f} ± {B3_hw_t:.3f}\n"
+        txt_out += f"- Dissociation rates (k_off1, k_off2, k_off3): {koff1_fit_t:.4f} ± {koff1_hw_t:.4f}, {koff2_fit_t:.4f} ± {koff2_hw_t:.4f}, {koff3_fit_t:.4f} ± {koff3_hw_t:.4f} s⁻¹\n"
+        txt_out += f"       → Residence times: {1/koff1_fit_t:.2f}, {1/koff2_fit_t:.2f}, {1/koff3_fit_t:.2f} s\n"
+        txt_out += f"- Photobleaching rate (k_b): {kb_fit_t:.4f} ± {kb_hw_t:.4f} s⁻¹\n"
+    else:
+        txt_out += f"- Fractions: B1 = {B1_fit_t:.3f} ± {B1_se_t:.3f}, B2 = {B2_fit_t:.3f} ± {B2_se_t:.3f}, B3 = {B3_fit_t:.3f} ± {B3_se_t:.3f}\n"
+        txt_out += f"- Dissociation rates (k_off1, k_off2, k_off3): {koff1_fit_t:.4f} ± {koff1_se_t:.4f}, {koff2_fit_t:.4f} ± {koff2_se_t:.4f}, {koff3_fit_t:.4f} ± {koff3_se_t:.4f} s⁻¹\n"
+        txt_out += f"       → Residence times: {1/koff1_fit_t:.2f}, {1/koff2_fit_t:.2f}, {1/koff3_fit_t:.2f} s\n"
+        txt_out += f"- Photobleaching rate (k_b): {kb_fit_t:.4f} ± {kb_se_t:.4f} s⁻¹\n"
+    txt_out += f"- Residual sum of squares: {rss_t:.4f}\n"
+    txt_out += f"- BIC value: {bic_t:.4f}\n"
     
     if output95CI:
         txt_out += "\nNote: '±' denotes the half-width of the 95% confidence interval around the fitted parameter.\n"
